@@ -1,0 +1,13 @@
+C:\Users\MyUser\Desktop\WEBtoSQL\WEBtoSQL\obj\Release\net7.0\PubTmp\Out\WEBtoSQL.exe
+C:\Users\MyUser\Desktop\WEBtoSQL\WEBtoSQL\obj\Release\net7.0\PubTmp\Out\appsettings.Development.json
+C:\Users\MyUser\Desktop\WEBtoSQL\WEBtoSQL\obj\Release\net7.0\PubTmp\Out\appsettings.json
+C:\Users\MyUser\Desktop\WEBtoSQL\WEBtoSQL\obj\Release\net7.0\PubTmp\Out\WEBtoSQL.dll
+C:\Users\MyUser\Desktop\WEBtoSQL\WEBtoSQL\obj\Release\net7.0\PubTmp\Out\WEBtoSQL.deps.json
+C:\Users\MyUser\Desktop\WEBtoSQL\WEBtoSQL\obj\Release\net7.0\PubTmp\Out\WEBtoSQL.runtimeconfig.json
+C:\Users\MyUser\Desktop\WEBtoSQL\WEBtoSQL\obj\Release\net7.0\PubTmp\Out\WEBtoSQL.pdb
+C:\Users\MyUser\Desktop\WEBtoSQL\WEBtoSQL\obj\Release\net7.0\PubTmp\Out\System.Data.SqlClient.dll
+C:\Users\MyUser\Desktop\WEBtoSQL\WEBtoSQL\obj\Release\net7.0\PubTmp\Out\runtimes\win-arm64\native\sni.dll
+C:\Users\MyUser\Desktop\WEBtoSQL\WEBtoSQL\obj\Release\net7.0\PubTmp\Out\runtimes\win-x64\native\sni.dll
+C:\Users\MyUser\Desktop\WEBtoSQL\WEBtoSQL\obj\Release\net7.0\PubTmp\Out\runtimes\win-x86\native\sni.dll
+C:\Users\MyUser\Desktop\WEBtoSQL\WEBtoSQL\obj\Release\net7.0\PubTmp\Out\runtimes\unix\lib\netcoreapp2.1\System.Data.SqlClient.dll
+C:\Users\MyUser\Desktop\WEBtoSQL\WEBtoSQL\obj\Release\net7.0\PubTmp\Out\runtimes\win\lib\netcoreapp2.1\System.Data.SqlClient.dll

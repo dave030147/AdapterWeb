@@ -1,0 +1,3108 @@
+﻿@using WEBtoSQL.Models;
+@using System.Text.Json
+@{
+    List<MVCSETTING> settings = ViewBag.Setting;
+    List<MVCDEFAILT_SUB_New> workorder_sub = ViewBag.Workorder_sub;
+
+    string[] myPorts = ViewBag.myPorts, I_ePtntls = new string[8], O_ePtntls = new string[8];
+    string port1 = "", port2 = "";
+    int I_ePtntls_No = 0, O_ePtntls_No = 0;
+    foreach (MVCSETTING sett in settings.Where(s => s.Type == "Reader1"))
+    {
+        if (sett.Name == "Port")
+        {
+            port1 = sett.Value;
+        }
+    }
+    foreach (MVCSETTING sett in settings.Where(s => s.Type == "Reader2"))
+    {
+        if (sett.Name == "Port")
+        {
+            port2 = sett.Value;
+        }
+    }
+    foreach (MVCSETTING sett in settings.Where(s => s.Type == "Input_ePtntl"))
+    {
+        if (I_ePtntls_No <= I_ePtntls.Length)
+        {
+            I_ePtntls[I_ePtntls_No] = sett.Value;
+            I_ePtntls_No++;
+        }
+    }
+    foreach (MVCSETTING sett in settings.Where(s => s.Type == "Output_ePtntl"))
+    {
+        if (O_ePtntls_No <= O_ePtntls.Length)
+        {
+            O_ePtntls[O_ePtntls_No] = sett.Value;
+            O_ePtntls_No++;
+        }
+    }
+}
+
+<style>
+    /*設定畫面背景樣式*/
+    .Model_block {
+        background-color: white;
+        width: 103%;
+        height: 100%;
+        padding: 50px;
+    }
+    /******************     Tab CSS        *******************/
+    .nav-link {
+        transition: none;
+        background-color: #fff;
+        color: #6c735d; /* 设置未选中选项卡的文本颜色为灰色 */
+    }
+
+        .nav-link:hover, .nav-link:focus {
+            color: #fff; /* 鼠标悬停或获得焦点时设置文本颜色为白色 */
+        }
+
+    .nav-tabs .nav-link {
+        background-color: darkgray;
+    }
+
+    /*初始載入時隱藏*/
+    #Hermes_setting {
+        display: none;
+    }
+
+    #workorder_setting {
+        display: none;
+    }
+
+    #digital_setting {
+        display: none;
+    }
+
+    #outport_setting {
+        display: none;
+    }
+
+    /* 表格行的灰白相間效果 */
+    .table tbody tr {
+        background-color: #f2f2f2; /* 偶數行背景色 */
+    }
+
+    .table thead {
+        background-color: gray; /* 偶數行背景色 */
+    }
+
+    /* 使用 CSS 設定可捲動的容器樣式 */
+    .scrollable-container {
+        max-height: 650px; /* 設定容器的最大高度 */
+        overflow-y: scroll; /* 使用垂直捲軸 */
+    }
+
+    .scrollable-container-station {
+        max-height: 30vw; /* 設定容器的最大高度 */
+        overflow-y: scroll; /* 使用垂直捲軸 */
+    }
+</style>
+
+<h1 class="white">@ViewData["Title"]</h1>
+<body>
+    <div id="System_setting" style="width: 1760px;padding-left: 100px; position: fixed;">
+        <!------------------------  Tab 選擇  ----------------------->
+        <ul class="nav nav-tabs">
+            <li class="nav-item">
+                <a class="nav-link active" aria-current="page" id="Common_tab" onclick="Tab_click('Common_tab','Common_setting')">Common</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" id="Hermes_tab" onclick="Tab_click('Hermes_tab','Hermes_setting')">Hermes</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" id="workorder_tab" onclick="Tab_click('workorder_tab','workorder_setting')">Work Order</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" style="display:none" id="digital_tab" onclick="Tab_click('digital_tab','digital_setting')">Digital</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" id="outport_tab" onclick="Tab_click('outport_tab','outport_setting')">OutPorts</a>
+            </li>
+        </ul>
+
+        <!---------------------------     設定頁面       --------------------------------->
+        <!-- 設定 -->
+        <div class="Model_block">
+            <!-- 設定Common -->
+            <div id="Common_setting">
+                <button class="btn btn-primary" style="margin-bottom:1%;" type="button" onclick="save('Common')">@ViewBag.btn_save</button>
+                <div id="Common" class="scrollable-container">
+                    <div style="display:flex;">
+                        <span style="margin-right:2%;">@ViewBag.lbl_days</span>
+                        <input style="width:8%;" type="text" id="txt_AutoDelete-Log-Day" name="AutoDelete-Log-Day" class="form-control" required value="@ViewBag.days">
+                    </div>
+                    <br />
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>@ViewBag.titl_type</th>
+                                <th>@ViewBag.titl_name</th>
+                                <th>@ViewBag.titl_value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @{
+                                // 用來追蹤已經顯示的 type
+                                HashSet<string> displayedTypes = new HashSet<string>();
+                            }
+                            @{
+                                // 用來追蹤已經顯示的 outPortName
+                                HashSet<string> outportname = new HashSet<string>();
+                            }
+
+                            @foreach (MVCSETTING sett in settings.Where(s => s.Group == "MACHINE").OrderByDescending(s => s.Name == "ModelName").ThenByDescending(s => s.Name == "MachineID"))
+                            {
+                                <tr>
+                                    @if (!displayedTypes.Contains(sett.Type!))
+                                    {
+                                        @if (sett.Type == "MACHINE")
+                                        {
+                                            <th>@ViewBag.table_information</th>
+                                        }
+                                        // 將 type 加入已經顯示的集合
+                                        displayedTypes.Add(sett.Type!);
+                                    }
+                                    else
+                                    {
+                                        <th></th>
+                                    }
+                                    @if (sett.Name == "ModelName")
+                                    {
+                                        <th>@ViewBag.table_modelname</th>
+                                    }
+                                    else if (sett.Name == "MachineID")
+                                    {
+                                        <th>@ViewBag.table_machineid</th>
+                                    }
+                                    else if (sett.Name == "DisplayName")
+                                    {
+                                        <th>@ViewBag.table_displayname</th>
+                                    }
+                                    else if (sett.Name == "BoardMode")
+                                    {
+                                        <th>@ViewBag.table_BoardMode</th>
+                                        <th>
+                                            <select class="form-select td_reason" id="select_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name">
+                                                <option value="0" selected="@(sett.Value == "0")">@ViewBag.btn_single</option>
+                                                <option value="1" selected="@(sett.Value == "1")">@ViewBag.btn_fifo</option>
+                                                <option value="2" selected="@(sett.Value == "2")">@ViewBag.btn_match</option>
+                                            </select>
+                                            <span style="margin-left:1%; color:red;">※@ViewBag.warning_BoardMode</span>
+                                        </th>
+                                    }
+                                    else if (sett.Name == "fifoRange")
+                                    {
+                                        <th>@ViewBag.table_fifoRange (2~50)</th>
+                                    }
+                                    @if (sett.Name != "BoardMode")
+                                    {
+                                        <th><input type="text" id="txt_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" class="form-control" required value="@sett.Value"></th>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                    <br />
+                </div>
+            </div>
+
+            <!-- 設定Hermes -->
+            <div id="Hermes_setting">
+                <button class="btn btn-primary" style="margin-bottom:1%;" type="button" onclick="save('Hermes')">@ViewBag.btn_save</button>
+                <div id="Hermes" class="scrollable-container">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>@ViewBag.titl_type</th>
+                                <th>@ViewBag.titl_name</th>
+                                <th>@ViewBag.titl_value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            @foreach (MVCSETTING sett in settings.Where(s => s.Type == "Hermes").OrderByDescending(s => s.Name == "Enable").
+                            ThenByDescending(s => s.Name == "Version"))
+                            {
+                                @if (sett.Group == "Hermes")
+                                {
+                                    if (sett.Name != "Reserved_quantity" && sett.Name != "Command_effect" && sett.Name != "Command_Path" && sett.Name != "Give_Command_Order")
+                                    {
+                                        <tr>
+
+                                            @if (!displayedTypes.Contains(sett.Type!))
+                                            {
+                                                <th>@sett.Type</th>
+                                                // 將 type 加入已經顯示的集合
+                                                displayedTypes.Add(sett.Type!);
+                                            }
+                                            else
+                                            {
+                                                <th></th>
+                                            }
+                                            @if (sett.Name == "Enable")
+                                            {
+                                                <th>@ViewBag.table_enable</th>
+                                            }
+                                            else if (sett.Name == "Version")
+                                            {
+                                                <th>@ViewBag.table_version</th>
+                                            }
+                                            else if (sett.Name == "CheckAliveInterval")
+                                            {
+                                                <th>@ViewBag.table_checkalive1</th>
+                                            }
+                                            else if (sett.Name == "QueryResponseTimeout")
+                                            {
+                                                <th>@ViewBag.table_queryresponse1</th>
+                                            }
+                                            else if (sett.Name == "StratTransportDelayTime")
+                                            {
+                                                <th>@ViewBag.table_strattransportdelaytime1</th>
+                                            }
+                                            @if (sett.Name == "Enable")
+                                            {
+                                                <th>
+                                                    <div class="btn-group" role="group">
+                                                        <button type="button" id="btn_Y_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" onclick="btn_true('@sett.Group-@sett.Type-@sett.Name')" class="btn btn-@((sett.Value == "true" || sett.Value == "TRUE" || sett.Value == "True") ? "primary" : "primary")" disabled>@ViewBag.btn_true</button>
+                                                        <button type="button" id="btn_N_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" onclick="btn_false('@sett.Group-@sett.Type-@sett.Name')" class="btn btn-@((sett.Value == "true" || sett.Value == "TRUE" || sett.Value == "True") ? "secondary" : "secondary")" disabled>@ViewBag.btn_False</button>
+                                                    </div>
+                                                </th>
+                                            }
+                                            else if (sett.Name == "CheckAliveInterval")
+                                            {
+                                                <th style="display:flex">
+                                                    <input type="text" id="txt_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" class="form-control" required value="@sett.Value">
+                                                    <p style="margin-left:2%;">@ViewBag.table_checkalive2</p>
+                                                </th>
+
+                                            }
+                                            else if (sett.Name == "QueryResponseTimeout")
+                                            {
+                                                <th style="display:flex">
+                                                    <input type="text" id="txt_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" class="form-control" required value="@sett.Value">
+                                                    <p style="margin-left:2%;">@ViewBag.table_queryresponse2</p>
+                                                </th>
+
+                                            }
+                                            else if (sett.Name == "Version")
+                                            {
+                                                <th>
+                                                    <select class="form-select td_reason" id="select_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name">
+                                                        @*<option value="120" selected="@(sett.Value == "120")">1.2</option>*@
+                                                        <option value="130" selected="@(sett.Value == "130")">1.3</option>
+                                                        <option value="140" selected="@(sett.Value == "140")">1.4</option>
+                                                        <option value="150" selected="@(sett.Value == "150")">1.5</option>
+                                                    </select>
+                                                </th>
+                                            }
+                                            else if (sett.Name == "StratTransportDelayTime")
+                                            {
+                                                <th style="display:flex">
+                                                    <input type="text" id="txt_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" class="form-control" required value="@sett.Value" readonly>
+                                                    <p style="margin-left:2%;">@ViewBag.table_strattransportdelaytime2</p>
+                                                </th>
+                                            }
+                                        </tr>
+                                    }
+                                    else if (sett.Name == "Reserved_quantity")
+                                    {
+                                        <tr id="Reserved_quantity-Version-1.4">
+                                            <th></th>
+                                            <th>@ViewBag.table_Reserved_quantity</th>
+                                            <th>
+                                                <input type="text" id="txt_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" class="form-control" required value="@sett.Value">
+                                            </th>
+                                        </tr>
+
+                                    }
+                                    else if (sett.Name == "Give_Command_Order")
+                                    {
+                                        <tr id="Give_Command_Order-Version-1.4">
+                                            <th></th>
+                                            <th>@ViewBag.table_Give_Command_Order</th>
+                                            <th>
+                                                <div class="btn-group" role="group">
+                                                    <button type="button" id="btn_Y_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" onclick="btn_true('@sett.Group-@sett.Type-@sett.Name')" class="btn btn-@((sett.Value == "true" || sett.Value == "TRUE" || sett.Value == "True") ? "primary" : "secondary")">@ViewBag.btn_true</button>
+                                                    <button type="button" id="btn_N_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" onclick="btn_false('@sett.Group-@sett.Type-@sett.Name')" class="btn btn-@((sett.Value == "true" || sett.Value == "TRUE" || sett.Value == "True") ? "secondary" : "primary")">@ViewBag.btn_False</button>
+                                                </div>
+                                            </th>
+                                        </tr>
+                                    }
+                                    else if (sett.Name == "Command_effect")
+                                    {
+                                        <tr id="Command_effect-Version-1.4">
+                                            <th></th>
+                                            <th>@ViewBag.table_Command_effect</th>
+                                            <th>
+                                                <div class="btn-group" role="group">
+                                                    <button type="button" id="btn_Y_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" onclick="btn_true('@sett.Group-@sett.Type-@sett.Name')" class="btn btn-@((sett.Value == "true" || sett.Value == "TRUE" || sett.Value == "True") ? "primary" : "secondary")">@ViewBag.btn_true</button>
+                                                    <button type="button" id="btn_N_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" onclick="btn_false('@sett.Group-@sett.Type-@sett.Name')" class="btn btn-@((sett.Value == "true" || sett.Value == "TRUE" || sett.Value == "True") ? "secondary" : "primary")">@ViewBag.btn_False</button>
+                                                </div>
+                                            </th>
+                                        </tr>
+                                    }
+                                    else if (sett.Name == "Command_Path")
+                                    {
+                                        <tr id="Command_Path-Version-1.4">
+                                            <th></th>
+                                            <th>@ViewBag.table_Command_Path</th>
+                                            <th>
+                                                <select class="form-select td_reason" id="select_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name">
+                                                    <option value="0" selected="@(sett.Value == "0")">@ViewBag.table_upstream</option>
+                                                    <option value="1" selected="@(sett.Value == "1")">@ViewBag.table_downstream</option>
+                                                </select>
+                                            </th>
+                                        </tr>
+                                    }
+                                }
+                            }
+
+                            @foreach (MVCSETTING sett in settings.Where(s => s.Type == "Supervisory").OrderByDescending(s => s.Name == "Enable").
+                            ThenByDescending(s => s.Name == "Port").ThenByDescending(s => s.Name == "CheckAliveResponse").ThenByDescending(s => s.Name == "CheckAliveResponse").
+                            ThenByDescending(s => s.Name == "QueryWorkOrderInfo").ThenByDescending(s => s.Name == "SendWorkOrderInfo").ThenByDescending(s => s.Name == "Configuration"))
+                            {
+                                @if (sett.Name != "ReplyWorkOrderInfo")
+                                {
+                                    <tr>
+                                        @if (!displayedTypes.Contains(sett.Type!))
+                                        {
+                                            <th>@ViewBag.table_supervisory</th>
+                                            // 將 type 加入已經顯示的集合
+                                            displayedTypes.Add(sett.Type!);
+                                        }
+                                        else
+                                        {
+                                            <th></th>
+                                        }
+                                        @if (sett.Name == "Enable")
+                                        {
+                                            <th>@ViewBag.table_enable</th>
+                                        }
+                                        else if (sett.Name == "Port")
+                                        {
+                                            <th>@ViewBag.table_tcpport</th>
+                                        }
+                                        else if (sett.Name == "CheckAliveResponse")
+                                        {
+                                            <th>@ViewBag.table_checkaliveresponse</th>
+                                        }
+                                        else if (sett.Name == "QueryWorkOrderInfo")
+                                        {
+                                            <th>@ViewBag.table_queryworkorderinfo</th>
+                                        }
+                                        else if (sett.Name == "SendWorkOrderInfo")
+                                        {
+                                            <th>@ViewBag.table_sendworkorderinfo</th>
+                                        }
+                                        else if (sett.Name == "Configuration")
+                                        {
+                                            <th>@ViewBag.table_configuration</th>
+                                        }
+                                        else if (sett.Name == "BoardTracking")
+                                        {
+                                            <th>@ViewBag.table_boardtracking</th>
+                                        }
+
+                                        @if (sett.Name == "Port")
+                                        {
+                                            <th><input type="text" id="txt_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" class="form-control" required value="@sett.Value"></th>
+                                        }
+                                        else
+                                        {
+                                            <th>
+                                                <div class="btn-group" role="group">
+                                                    <button type="button" id="btn_Y_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" onclick="btn_true('@sett.Group-@sett.Type-@sett.Name')" class="btn btn-@((sett.Value == "true" || sett.Value == "TRUE" || sett.Value == "True") ? "primary" : "secondary")">@ViewBag.btn_true</button>
+                                                    <button type="button" id="btn_N_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" onclick="btn_false('@sett.Group-@sett.Type-@sett.Name')" class="btn btn-@((sett.Value == "true" || sett.Value == "TRUE" || sett.Value == "True") ? "secondary" : "primary")">@ViewBag.btn_False</button>
+                                                </div>
+                                            </th>
+                                        }
+                                    </tr>
+                                }
+                                else if (sett.Name == "ReplyWorkOrderInfo")
+                                {
+                                    <tr id="ReplyWorkOrderInfo-Version-1.4">
+                                        <th></th>
+                                        <th>@ViewBag.table_RWI</th>
+                                        <th>
+                                            <div class="btn-group" role="group">
+                                                <button type="button" id="btn_Y_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" onclick="btn_true('@sett.Group-@sett.Type-@sett.Name')" class="btn btn-@((sett.Value == "true" || sett.Value == "TRUE" || sett.Value == "True") ? "primary" : "secondary")">@ViewBag.btn_true</button>
+                                                <button type="button" id="btn_N_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" onclick="btn_false('@sett.Group-@sett.Type-@sett.Name')" class="btn btn-@((sett.Value == "true" || sett.Value == "TRUE" || sett.Value == "True") ? "secondary" : "primary")">@ViewBag.btn_False</button>
+                                            </div>
+                                        </th>
+                                    </tr>
+                                }
+                            }
+
+                            @foreach (MVCSETTING sett in settings.Where(s => s.Type == "Upstream").OrderByDescending(s => s.Name == "Enable").
+                            ThenByDescending(s => s.Name == "IP").ThenByDescending(s => s.Name == "Port").ThenByDescending(s => s.Name == "CheckAliveResponse").
+                            ThenByDescending(s => s.Name == "QueryBoardInfo"))
+                            {
+                                @if (sett.Name != "Command")
+                                {
+                                    <tr>
+                                        @if (!displayedTypes.Contains(sett.Type!))
+                                        {
+                                            <th>@ViewBag.table_upstream</th>
+                                            // 將 type 加入已經顯示的集合
+                                            displayedTypes.Add(sett.Type!);
+                                        }
+                                        else
+                                        {
+                                            <th></th>
+                                        }
+
+                                        @if (sett.Name == "Enable")
+                                        {
+                                            <th>@ViewBag.table_enable</th>
+                                        }
+                                        else if (sett.Name == "IP")
+                                        {
+                                            <th>@ViewBag.table_tcpip</th>
+                                        }
+                                        else if (sett.Name == "Port")
+                                        {
+                                            <th>@ViewBag.table_tcpport</th>
+                                        }
+                                        else if (sett.Name == "CheckAliveResponse")
+                                        {
+                                            <th>@ViewBag.table_checkaliveresponse</th>
+                                        }
+                                        else if (sett.Name == "QueryBoardInfo")
+                                        {
+                                            <th>@ViewBag.table_queryboardinfo</th>
+                                        }
+                                        else if (sett.Name == "BoardForecast")
+                                        {
+                                            <th>@ViewBag.table_boardforecast</th>
+                                        }
+                                        else if (sett.Name == "Order")
+                                        {
+                                            <th>@ViewBag.table_order</th>
+                                        }
+                                        @if (sett.Name == "IP")
+                                        {
+                                            <th><input type="text" id="txt_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" class="form-control" required value="@sett.Value"></th>
+                                        }
+                                        else if (sett.Name == "Port")
+                                        {
+                                            <th><input type="text" id="txt_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" class="form-control" required value="@sett.Value"></th>
+                                        }
+                                        else if (sett.Name == "Order")
+                                        {
+                                            <th>
+                                                <select class="form-select td_reason" id="select_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name">
+                                                    <option value="0" selected="@(sett.Value == "0")">@ViewBag.select_ordre_standard</option>
+                                                    <option value="1" selected="@(sett.Value == "1")">@ViewBag.select_ordre_BAMR</option>
+                                                    <option value="2" selected="@(sett.Value == "2")">@ViewBag.select_ordre_MRBA</option>
+                                                </select>
+                                            </th>
+                                        }
+                                        else
+                                        {
+                                            <th>
+                                                <div class="btn-group" role="group">
+                                                    <button type="button" id="btn_Y_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" onclick="btn_true('@sett.Group-@sett.Type-@sett.Name')" class="btn btn-@((sett.Value == "true" || sett.Value == "TRUE" || sett.Value == "True") ? "primary" : "secondary")">@ViewBag.btn_true</button>
+                                                    <button type="button" id="btn_N_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" onclick="btn_false('@sett.Group-@sett.Type-@sett.Name')" class="btn btn-@((sett.Value == "true" || sett.Value == "TRUE" || sett.Value == "True") ? "secondary" : "primary")">@ViewBag.btn_False</button>
+                                                </div>
+                                            </th>
+                                        }
+                                    </tr>
+                                }
+                                else if (sett.Name == "Command")
+                                {
+                                    <tr id="Upstream-Command-Version-1.4">
+                                        <th></th>
+                                        <th>@ViewBag.table_Command</th>
+                                        <th>
+                                            <div class="btn-group" role="group">
+                                                <button type="button" id="btn_Y_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" onclick="btn_true('@sett.Group-@sett.Type-@sett.Name')" class="btn btn-@((sett.Value == "true" || sett.Value == "TRUE" || sett.Value == "True") ? "primary" : "secondary")">@ViewBag.btn_true</button>
+                                                <button type="button" id="btn_N_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" onclick="btn_false('@sett.Group-@sett.Type-@sett.Name')" class="btn btn-@((sett.Value == "true" || sett.Value == "TRUE" || sett.Value == "True") ? "secondary" : "primary")">@ViewBag.btn_False</button>
+                                            </div>
+                                        </th>
+                                    </tr>
+                                }
+                            }
+
+                            @foreach (MVCSETTING sett in settings.Where(s => s.Type == "Downstream").OrderByDescending(s => s.Name == "Enable").
+                            ThenByDescending(s => s.Name == "IP").ThenByDescending(s => s.Name == "Port").ThenByDescending(s => s.Name == "CheckAliveResponse").
+                            ThenByDescending(s => s.Name == "SendBoardInfo"))
+                            {
+                                @if (sett.Name != "Command")
+                                {
+                                    <tr>
+                                        @if (!displayedTypes.Contains(sett.Type!))
+                                        {
+                                            <th>@ViewBag.table_downstream</th>
+                                            // 將 type 加入已經顯示的集合
+                                            displayedTypes.Add(sett.Type!);
+                                        }
+                                        else
+                                        {
+                                            <th></th>
+                                        }
+                                        @if (sett.Name == "Enable")
+                                        {
+                                            <th>@ViewBag.table_enable</th>
+                                        }
+                                        else if (sett.Name == "IP")
+                                        {
+                                            <th>@ViewBag.table_tcpip</th>
+                                        }
+                                        else if (sett.Name == "Port")
+                                        {
+                                            <th>@ViewBag.table_tcpport</th>
+                                        }
+                                        else if (sett.Name == "CheckAliveResponse")
+                                        {
+                                            <th>@ViewBag.table_checkaliveresponse</th>
+                                        }
+                                        else if (sett.Name == "SendBoardInfo")
+                                        {
+                                            <th>@ViewBag.table_sendboardinfo</th>
+                                        }
+                                        else if (sett.Name == "BoardForecast")
+                                        {
+                                            <th>@ViewBag.table_boardforecast</th>
+                                        }
+                                        else if (sett.Name == "Order")
+                                        {
+                                            <th>@ViewBag.table_order</th>
+                                        }
+                                        @if (sett.Name == "IP")
+                                        {
+                                            <th><input type="text" id="txt_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" class="form-control" required value="@sett.Value"></th>
+                                        }
+                                        else if (sett.Name == "Port")
+                                        {
+                                            <th><input type="text" id="txt_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" class="form-control" required value="@sett.Value"></th>
+                                        }
+                                        else if (sett.Name == "Order")
+                                        {
+                                            <th>
+                                                <select class="form-select td_reason" id="select_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name">
+                                                    <option value="0" selected="@(sett.Value == "0")">@ViewBag.select_ordre_standard</option>
+                                                    <option value="1" selected="@(sett.Value == "1")">@ViewBag.select_ordre_BAMR</option>
+                                                    <option value="2" selected="@(sett.Value == "2")">@ViewBag.select_ordre_MRBA</option>
+                                                </select>
+                                            </th>
+                                        }
+                                        else
+                                        {
+                                            <th>
+                                                <div class="btn-group" role="group">
+                                                    <button type="button" id="btn_Y_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" onclick="btn_true('@sett.Group-@sett.Type-@sett.Name')" class="btn btn-@((sett.Value == "true" || sett.Value == "TRUE" || sett.Value == "True") ? "primary" : "secondary")">@ViewBag.btn_true</button>
+                                                    <button type="button" id="btn_N_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" onclick="btn_false('@sett.Group-@sett.Type-@sett.Name')" class="btn btn-@((sett.Value == "true" || sett.Value == "TRUE" || sett.Value == "True") ? "secondary" : "primary")">@ViewBag.btn_False</button>
+                                                </div>
+                                            </th>
+                                        }
+                                    </tr>
+                                }
+                                else if (sett.Name == "Command")
+                                {
+                                    <tr id="Downstream-Command-Version-1.4">
+                                        <th></th>
+                                        <th>@ViewBag.table_Command</th>
+                                        <th>
+                                            <div class="btn-group" role="group">
+                                                <button type="button" id="btn_Y_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" onclick="btn_true('@sett.Group-@sett.Type-@sett.Name')" class="btn btn-@((sett.Value == "true" || sett.Value == "TRUE" || sett.Value == "True") ? "primary" : "secondary")">@ViewBag.btn_true</button>
+                                                <button type="button" id="btn_N_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" onclick="btn_false('@sett.Group-@sett.Type-@sett.Name')" class="btn btn-@((sett.Value == "true" || sett.Value == "TRUE" || sett.Value == "True") ? "secondary" : "primary")">@ViewBag.btn_False</button>
+                                            </div>
+                                        </th>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <!--設定WorkOrder-->
+            <div id="workorder_setting">
+                <button class="btn btn-primary" style="margin-bottom:1%;" type="button" onclick="save('WorkOrder')">@ViewBag.btn_save</button>
+                <br />
+                <div id="WorkOrder" class="scrollable-container">
+                    <span style="margin-right:2%;">@ViewBag.WorkOrderData</span>
+                    <div class="btn-group" style="margin-bottom:1%;" role="group">
+                        <button type="button" id="btn_Y_Supervisory" name="Hermes-newRecipe-WorkOrderData" onclick="btn_Supervisory()" class="btn btn-@((ViewBag.WODS == "0"@*Supervisory*@) ? "primary" : "secondary")">@ViewBag.btn_Supervisory</button>
+                        <button type="button" id="btn_N_ManualKeyin" name="Hermes-newRecipe-WorkOrderData" onclick="btn_ManualKeyin()" class="btn btn-@((ViewBag.WODS == "1"@*ManualKeyin*@) ? "primary" : "secondary")">@ViewBag.btn_ManualKeyin</button>
+                    </div>
+                    <span style="margin-left:2%; color:red;">※@ViewBag.warning_WorkOrderData</span>
+                    <br />
+                    <span style="margin-right:2%;">@ViewBag.NoDataAct</span>
+                    <div class="btn-group" style="margin-bottom:1%;" role="group">
+                        <button type="button" id="btn_Y_Stay" name="Hermes-newRecipe-QWINoData" onclick="btn_Stay()" class="btn btn-@((ViewBag.NO_WODS == "0"@*Stay*@) ? "primary" : "secondary")">@ViewBag.btn_Stay</button>
+                        <button type="button" id="btn_N_CreateData" name="Hermes-newRecipe-QWINoData" onclick="btn_CreateData()" class="btn btn-@((ViewBag.NO_WODS == "1"@*CreateData*@) ? "primary" : "secondary")">@ViewBag.btn_CreateData</button>
+                    </div>
+                    <span style="margin-left:2%; color:red;">※@ViewBag.warning_NoDataAct</span>
+                    <div id="workorder">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>@ViewBag.titl_type</th>
+                                    <th>@ViewBag.titl_name</th>
+                                    <th>@ViewBag.titl_value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (MVCSETTING sett in settings.Where(s => s.Type == "newRecipe").OrderByDescending(s => s.Name == "WorkOrderID").
+                                ThenByDescending(s => s.Name == "BatchID").ThenByDescending(s => s.Name == "FailedBoard").
+                                ThenByDescending(s => s.Name == "ProductTypeID").ThenByDescending(s => s.Name == "FlippedBoard").
+                                ThenByDescending(s => s.Name == "Topbarcodetitle").ThenByDescending(s => s.Name == "Bottombarcodetitle").
+                                ThenByDescending(s => s.Name == "Length").ThenByDescending(s => s.Name == "Width").
+                                ThenByDescending(s => s.Name == "Thickness").ThenByDescending(s => s.Name == "ConveyorSpeed").
+                                ThenByDescending(s => s.Name == "TopClearanceHeight").ThenByDescending(s => s.Name == "BottomClearanceHeight").
+                                ThenByDescending(s => s.Name == "Weight").ThenByDescending(s => s.Name == "Route").
+                                ThenByDescending(s => s.Name == "Action"))
+                                {
+                                    @if (sett.Name != "WorkOrderData" && sett.Name != "Topbarcodetype" && sett.Name != "Bottombarcodetype" &&
+                                   sett.Name != "QWINoData" && sett.Name != "Topbarcodein" && sett.Name != "Bottombarcodein" && sett.Name != "TopBarCode" &&
+                                   sett.Name != "BottomBarCode" && sett.Name != "TopBarCodeSuffix" && sett.Name != "BottomBarCodeSuffix" &&
+                                   sett.Name != "Route" && sett.Name != "Action" && sett.Name != "BatchID" && sett.Name != "isServiceReStar")
+                                    {
+                                        <tr>
+                                            @if (!displayedTypes.Contains(sett.Type!))
+                                            {
+                                                <th>@ViewBag.table_workorder</th>
+                                                // 將 type 加入已經顯示的集合
+                                                displayedTypes.Add(sett.Type!);
+                                            }
+                                            else
+                                            {
+                                                <th></th>
+                                            }
+                                            @if (sett.Name == "FailedBoard")
+                                            {
+                                                <th>@ViewBag.table_FailedBoard</th>
+                                            }
+                                            else if (sett.Name == "ProductTypeID")
+                                            {
+                                                <th>@ViewBag.table_ProductTypeID</th>
+                                            }
+                                            else if (sett.Name == "FlippedBoard")
+                                            {
+                                                <th>@ViewBag.table_FlippedBoard</th>
+                                            }
+                                            else if (sett.Name == "Length")
+                                            {
+                                                <th>@ViewBag.table_Length</th>
+                                            }
+                                            else if (sett.Name == "Width")
+                                            {
+                                                <th>@ViewBag.table_Width</th>
+                                            }
+                                            else if (sett.Name == "Thickness")
+                                            {
+                                                <th>@ViewBag.table_Thickness</th>
+                                            }
+                                            else if (sett.Name == "ConveyorSpeed")
+                                            {
+                                                <th>@ViewBag.table_ConveyorSpeed</th>
+                                            }
+                                            else if (sett.Name == "TopClearanceHeight")
+                                            {
+                                                <th>@ViewBag.table_TopClearanceHeight</th>
+                                            }
+                                            else if (sett.Name == "BottomClearanceHeight")
+                                            {
+                                                <th>@ViewBag.table_BottomClearanceHeight</th>
+                                            }
+                                            else if (sett.Name == "Weight")
+                                            {
+                                                <th>@ViewBag.table_Weight</th>
+                                            }
+                                            else if (sett.Name == "WorkOrderID")
+                                            {
+                                                <th>@ViewBag.table_WorkOrderID</th>
+                                            }
+                                            else if (sett.Name == "Topbarcodetitle")
+                                            {
+                                                <th>TopBarCode</th>
+                                            }
+                                            else if (sett.Name == "Bottombarcodetitle")
+                                            {
+                                                <th>BottomBarCode</th>
+                                            }
+                                            @if (sett.Name == "FailedBoard")
+                                            {
+                                                <th>
+                                                    <select class="form-select td_reason" id="select_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name">
+                                                        <option value="0" selected="@(sett.Value == "0")">@ViewBag.btn_FailedBoard_unknown</option>
+                                                        <option value="1" selected="@(sett.Value == "1")">@ViewBag.btn_FailedBoard_good</option>
+                                                        <option value="2" selected="@(sett.Value == "2")">@ViewBag.btn_FailedBoard_failed</option>
+                                                    </select>
+                                                </th>
+                                            }
+                                            else if (sett.Name == "FlippedBoard")
+                                            {
+                                                <th>
+                                                    <select class="form-select td_reason" id="select_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name">
+                                                        <option value="0" selected="@(sett.Value == "0")">@ViewBag.btn_FlippedBoard_unknown</option>
+                                                        <option value="1" selected="@(sett.Value == "1")">@ViewBag.btn_FlippedBoard_top</option>
+                                                        <option value="2" selected="@(sett.Value == "2")">@ViewBag.btn_FlippedBoard_bottom</option>
+                                                    </select>
+                                                </th>
+                                            }
+                                            else if (sett.Name == "Topbarcodetitle")
+                                            {
+                                                <th style="display:flex;">
+                                                    <input type="text" id="txt_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" class="form-control" style="margin-right: 0.5vw; width: 70%;" required value="@sett.Value">
+                                                    <select class="form-select td_reason" style="width:11vw" id="select_Hermes-newRecipe-Topbarcodetype" name="Hermes-newRecipe-Topbarcodetype">
+                                                        <option value="0" selected="@(ViewBag.TopEnterType == "0")">@ViewBag.btn_barcode_none</option>
+                                                        <option value="1" selected="@(ViewBag.TopEnterType == "1")">@ViewBag.btn_barcode_number</option>
+                                                        <option value="2" selected="@(ViewBag.TopEnterType == "2")">@ViewBag.btn_barcode_date</option>
+                                                    </select>
+                                                </th>
+                                            }
+                                            else if (sett.Name == "Bottombarcodetitle")
+                                            {
+                                                <th style="display:flex;">
+                                                    <input type="text" id="txt_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" class="form-control" style="margin-right: 0.5vw; width: 70%;" required value="@sett.Value">
+                                                    <select class="form-select td_reason" style="width:11vw" id="select_Hermes-newRecipe-Bottombarcodetype" name="Hermes-newRecipe-Bottombarcodetype">
+                                                        <option value="0" selected="@(ViewBag.BottomEnterType == "0")">@ViewBag.btn_barcode_none</option>
+                                                        <option value="1" selected="@(ViewBag.BottomEnterType == "1")">@ViewBag.btn_barcode_number</option>
+                                                        <option value="2" selected="@(ViewBag.BottomEnterType == "2")">@ViewBag.btn_barcode_date</option>
+                                                    </select>
+                                                </th>
+                                            }
+                                            else
+                                            {
+                                                <th><input type="text" id="txt_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" class="form-control" required value="@sett.Value"></th>
+                                            }
+                                        </tr>
+                                    }
+                                    else if (sett.Name == "Route")
+                                    {
+                                        <tr id="WorkOrder-Route-Version-1.4">
+                                            <th></th>
+                                            <th>@ViewBag.table_Route</th>
+                                            <th><input type="text" id="txt_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" class="form-control" required value="@sett.Value"></th>
+                                        </tr>
+                                    }
+                                    else if (sett.Name == "Action")
+                                    {
+                                        <tr id="WorkOrder-Action-Version-1.4">
+                                            <th></th>
+                                            <th>@ViewBag.table_Action</th>
+                                            <th><input type="text" id="txt_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" class="form-control" required value="@sett.Value" disabled></th>
+                                        </tr>
+                                    }
+                                    else if (sett.Name == "BatchID")
+                                    {
+                                        <tr id="WorkOrder-BatchID-Version-1.2">
+                                            <th></th>
+                                            <th>@ViewBag.table_BatchID</th>
+                                            <th><input type="text" id="txt_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" class="form-control" required value="@sett.Value"></th>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                        <table class="table" id="workorder_subboards">
+                            <thead>
+                                <tr>
+                                    <th style="width:9.5vw;"></th>
+                                    <th style="width:17vw;">@ViewBag.table_SubBoards</th>
+                                    <th>@ViewBag.table_SB_Pos</th>
+                                    <th>@ViewBag.table_SB_Bc</th>
+                                    <th>@ViewBag.table_SB_St</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (MVCDEFAILT_SUB_New sub in workorder_sub)
+                                {
+                                    <tr>
+                                        <th></th>
+                                        <th></th>
+                                        <th>
+                                            <input style="width:3vw;" type="text" id="SB_Pos_@sub.SB_Pos" class="form-control" required value="@sub.SB_Pos" disabled>
+                                        </th>
+                                        <th>
+                                            <input style="width:29vw;" type="text" id="SB_Bc_@sub.SB_Pos" name="@sub.SB_Pos-@sub.SB_St" class="form-control" required value="@sub.SB_Bc">
+                                        </th>
+                                        <th>
+                                            <select style="width:16vw;" id="SB_St_@sub.SB_Pos" name="@sub.SB_Pos" class="form-select td_reason">
+                                                <option value="0" selected="@(sub.SB_St == "0")">Subboard of unknown quality</option>
+                                                <option value="1" selected="@(sub.SB_St == "1")">Good Subboard</option>
+                                                <option value="2" selected="@(sub.SB_St == "2")">Failed Subboard</option>
+                                                <option value="3" selected="@(sub.SB_St == "3")">Missing Subboard</option>
+                                                <option value="4" selected="@(sub.SB_St == "4")">Skip Subboard</option>
+                                            </select>
+                                        </th>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                        <button class="btn btn-info" id="SB_Add" onclick="NewSubBoard()">@ViewBag.btn_SB_Add</button>
+                        <button class="btn btn-danger" id="SB_Delete" onclick="DeleSubBoard()">@ViewBag.btn_SB_Delete</button>
+                        <button class="btn btn-danger" id="SB_AllDele" onclick="DeleAll()">@ViewBag.btn_SB_AllDele</button>
+                    </div>
+                </div>
+            </div>
+
+            @{
+                // 用來追蹤已經使用的IO選項
+                HashSet<string> input = new HashSet<string>();
+            }
+            @{
+                // 用來追蹤已經使用的IO選項
+                HashSet<string> output = new HashSet<string>();
+            }
+
+            <!-- 設定IO -->
+            <div id="digital_setting">
+                <button class="btn btn-primary" style="margin-bottom:1%;" type="button" onclick="save('digital')">@ViewBag.btn_save</button>
+                <br />
+                <div id="Digital" class="scrollable-container">
+                    <div id="digital">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>@ViewBag.titl_type</th>
+                                    <th>@ViewBag.titl_name</th>
+                                    <th>@ViewBag.titl_value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @for (int i = 0; i < 8; i++)
+                                {
+                                    var setting = settings
+                                    .Where(s => s.Type == "Input")
+                                    .Select(s => new
+                                    {
+                                        No = s.Name,
+                                        Value = s.Value
+                                    })
+                                    .ToList();
+
+                                    var sett = setting.FirstOrDefault(s => s.No == i.ToString());
+
+                                    <tr>
+                                        @if (i == 0)
+                                        {
+                                            <td><span class="td_number">@ViewBag.table_input</span></td>
+                                        }
+                                        else
+                                        {
+                                            <td></td>
+                                        }
+                                        <td><span class="td_number">@i</span></td>
+                                        <td>
+                                            @if (sett != null)
+                                            {
+                                                <div style="display:flex">
+                                                    <select class="form-select td_reason" id="input_@i" name="Digital-Input-@sett.No">
+                                                        <option value="99" selected="@(sett.Value == "99")">@ViewBag.selsect_disable</option>
+                                                        @if (!input.Contains("0"!))
+                                                        {
+                                                            <option value="0" selected="@(sett.Value == "0")">@ViewBag.selsect_Down_BA</option>
+                                                        }
+                                                        else
+                                                        {
+                                                            <option value="0" disabled="" style="display: none;">@ViewBag.selsect_Down_BA</option>
+                                                        }
+                                                        @if (!input.Contains("1"!))
+                                                        {
+                                                            <option value="1" selected="@(sett.Value == "1")">@ViewBag.selsect_Up_MR</option>
+                                                        }
+                                                        else
+                                                        {
+                                                            <option value="1" disabled="" style="display: none;">@ViewBag.selsect_Up_MR</option>
+                                                        }
+                                                        @if (!input.Contains("2"!))
+                                                        {
+                                                            <option value="2" selected="@(sett.Value == "2")">@ViewBag.selsect_isfliped</option>
+                                                        }
+                                                        else
+                                                        {
+                                                            <option value="2" disabled="" style="display: none;">@ViewBag.selsect_isfliped</option>
+                                                        }
+                                                        @if (!input.Contains("3"!))
+                                                        {
+                                                            <option value="3" selected="@(sett.Value == "3")">@ViewBag.selsect_Down_FBA</option>
+                                                        }
+                                                        else
+                                                        {
+                                                            <option value="3" disabled="" style="display: none;">@ViewBag.selsect_Down_FBA</option>
+                                                        }
+                                                        @if (!input.Contains("4"!))
+                                                        {
+                                                            <option value="4" selected="@(sett.Value == "4")">I1</option>
+                                                        }
+                                                        else
+                                                        {
+                                                            <option value="4" disabled="" style="display: none;">I1</option>
+                                                        }
+                                                        @if (!input.Contains("5"!))
+                                                        {
+                                                            <option value="5" selected="@(sett.Value == "5")">I2</option>
+                                                        }
+                                                        else
+                                                        {
+                                                            <option value="5" disabled="" style="display: none;">I2</option>
+                                                        }
+                                                        @if (!input.Contains("6"!))
+                                                        {
+                                                            <option value="6" selected="@(sett.Value == "6")">I3</option>
+                                                        }
+                                                        else
+                                                        {
+                                                            <option value="6" disabled="" style="display: none;">I3</option>
+                                                        }
+                                                        @if (!input.Contains("7"!))
+                                                        {
+                                                            <option value="7" selected="@(sett.Value == "7")">I4</option>
+                                                        }
+                                                        else
+                                                        {
+                                                            <option value="7" disabled="" style="display: none;">I4</option>
+                                                        }
+                                                        @if (sett.Value != "99" && !input.Contains(sett.Value!))
+                                                        {
+                                                            // 將 type 加入已經顯示的集合
+                                                            input.Add(sett.Value!);
+                                                        }
+                                                    </select>
+                                                    <select class="form-select td_reason ePtntl" name="Digital-Input_ePtntl-@sett.No">
+                                                        <option value="0" selected="@(I_ePtntls[i] == "0")">@ViewBag.select_low_potential</option>
+                                                        <option value="1" selected="@(I_ePtntls[i] == "1")">@ViewBag.select_high_potential</option>
+                                                    </select>
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <div style="display:flex">
+                                                    <select class="form-select td_reason" id="select_@i" name="Digital-Input-@sett.No">
+                                                        <option value="99" selected>@ViewBag.selsect_disable</option>
+                                                        <option value="0">@ViewBag.selsect_Down_BA</option>
+                                                        <option value="1">@ViewBag.selsect_Up_MR</option>
+                                                        <option value="2">@ViewBag.selsect_isfliped</option>
+                                                        <option value="3">@ViewBag.selsect_Down_FBA</option>
+                                                        <option value="4">I1</option>
+                                                        <option value="5">I2</option>
+                                                        <option value="6">I3</option>
+                                                        <option value="7">I4</option>
+                                                    </select>
+                                                    <select class="form-select td_reason ePtntl" name="Digital-Input_ePtntl-@sett.No">
+                                                        <option value="0" selected="@(I_ePtntls[i] == "0")">@ViewBag.select_low_potential</option>
+                                                        <option value="1" selected="@(I_ePtntls[i] == "1")">@ViewBag.select_high_potential</option>
+                                                    </select>
+                                                </div>
+
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+
+                                @for (int i = 0; i < 8; i++)
+                                {
+                                    var setting = settings
+                                    .Where(s => s.Type == "Output")
+                                    .Select(s => new
+                                    {
+                                        No = s.Name,
+                                        Value = s.Value
+                                    })
+                                    .ToList();
+
+                                    var sett = setting.FirstOrDefault(s => s.No == i.ToString());
+
+                                    <tr>
+                                        @if (i == 0)
+                                        {
+                                            <td><span class="td_number">@ViewBag.table_output</span></td>
+                                        }
+                                        else
+                                        {
+                                            <td></td>
+                                        }
+                                        <td><span class="td_number">@i</span></td>
+                                        <td>
+                                            @if (sett != null)
+                                            {
+                                                <div style="display:flex">
+                                                    <select class="form-select td_reason" id="output_@i" name="Digital-Output-@sett.No">
+                                                        <option value="99" selected="@(sett.Value == "99")">@ViewBag.selsect_disable</option>
+                                                        @if (!output.Contains("0"!))
+                                                        {
+                                                            <option value="0" selected="@(sett.Value == "0")">@ViewBag.selsect_Up_BA</option>
+                                                        }
+                                                        else
+                                                        {
+                                                            <option value="0" disabled="" style="display: none;">@ViewBag.selsect_Up_BA</option>
+                                                        }
+                                                        @if (!output.Contains("1"!))
+                                                        {
+                                                            <option value="1" selected="@(sett.Value == "1")">@ViewBag.selsect_Down_MR</option>
+                                                        }
+                                                        else
+                                                        {
+                                                            <option value="1" disabled="" style="display: none;">@ViewBag.selsect_Down_MR</option>
+                                                        }
+                                                        @if (!output.Contains("2"!))
+                                                        {
+                                                            <option value="2" selected="@(sett.Value == "2")">@ViewBag.selsect_isflip</option>
+                                                        }
+                                                        else
+                                                        {
+                                                            <option value="2" disabled="" style="display: none;">@ViewBag.selsect_isflip</option>
+                                                        }
+                                                        @if (!output.Contains("3"!))
+                                                        {
+                                                            <option value="3" selected="@(sett.Value == "3")">@ViewBag.selsect_UP_FBA</option>
+                                                        }
+                                                        else
+                                                        {
+                                                            <option value="3" disabled="" style="display: none;">@ViewBag.selsect_UP_FBA</option>
+                                                        }
+                                                        @if (!output.Contains("4"!))
+                                                        {
+                                                            <option value="4" selected="@(sett.Value == "4")">@ViewBag.select_alarm</option>
+                                                        }
+                                                        else
+                                                        {
+                                                            <option value="4" disabled="" style="display: none;">@ViewBag.select_alarm</option>
+                                                        }
+                                                        @if (!output.Contains("5"!))
+                                                        {
+                                                            <option value="5" selected="@(sett.Value == "5")">O1</option>
+                                                        }
+                                                        else
+                                                        {
+                                                            <option value="5" disabled="" style="display: none;">O1</option>
+                                                        }
+                                                        @if (!output.Contains("6"!))
+                                                        {
+                                                            <option value="6" selected="@(sett.Value == "6")">O2</option>
+                                                        }
+                                                        else
+                                                        {
+                                                            <option value="6" disabled="" style="display: none;">O2</option>
+                                                        }
+                                                        @if (!output.Contains("7"!))
+                                                        {
+                                                            <option value="7" selected="@(sett.Value == "7")">O3</option>
+                                                        }
+                                                        else
+                                                        {
+                                                            <option value="7" disabled="" style="display: none;">O3</option>
+                                                        }
+                                                        @if (sett.Value != "99" && !output.Contains(sett.Value!))
+                                                        {
+                                                            // 將 type 加入已經顯示的集合
+                                                            output.Add(sett.Value!);
+                                                        }
+                                                    </select>
+                                                    <select class="form-select td_reason ePtntl" name="Digital-Output_ePtntl-@sett.No">
+                                                        <option value="0" selected="@(I_ePtntls[i] == "0")">@ViewBag.select_low_potential</option>
+                                                        <option value="1" selected="@(I_ePtntls[i] == "1")">@ViewBag.select_high_potential</option>
+                                                    </select>
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <div style="display:flex">
+                                                    <select class="form-select td_reason" id="output_@i" name="Digital-Output-@sett.No">
+                                                        <option value="99" selected>@ViewBag.selsect_disable</option>
+                                                        <option value="0">@ViewBag.selsect_Up_BA</option>
+                                                        <option value="1">@ViewBag.selsect_Down_MR</option>
+                                                        <option value="2">@ViewBag.selsect_isflip</option>
+                                                        <option value="3">@ViewBag.selsect_Up_FBA</option>
+                                                        <option value="4">O1</option>
+                                                        <option value="5">O2</option>
+                                                        <option value="6">O3</option>
+                                                        <option value="7">O4</option>
+                                                    </select>
+                                                    <select class="form-select td_reason ePtntl" name="Digital-Output_ePtntl-@sett.No">
+                                                        <option value="0" selected="@(I_ePtntls[i] == "0")">@ViewBag.select_low_potential</option>
+                                                        <option value="1" selected="@(I_ePtntls[i] == "1")">@ViewBag.select_high_potential</option>
+                                                    </select>
+                                                </div>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!--OutPorts設定Reader或外接設備-->
+            <div id="outport_setting">
+                <button class="btn btn-primary" style="margin-bottom:1%;" type="button" onclick="save('outport')">@ViewBag.btn_save</button>
+                <br />
+                <div id="outport" class="scrollable-container">
+                    <br />
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>@ViewBag.titl_type</th>
+                                <th>@ViewBag.titl_name</th>
+                                <th>@ViewBag.titl_value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (MVCSETTING sett in settings.Where(s => s.Type == "Reader1").OrderByDescending(s => s.Name == "WriteTimeout"))
+                            {
+                                @if (sett.Name == "WriteTimeout")
+                                {
+                                    <tr>
+                                        <th>BarCode Readers</th>
+                                        <th>@ViewBag.table_writetimeout</th>
+                                        <th style="display:flex">
+                                            <input name="@sett.Group-@sett.Type-@sett.Name" class="form-control input-block-level" type="number" id="txt_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" min="0" max="2147483647" value="@sett.Value">
+                                            <p style="margin-left:2%;">@ViewBag.table_checkalive2</p>
+                                        </th>
+                                    </tr>
+                                }
+                                @if (sett.Name == "Name")
+                                {
+                                    <tr>
+                                        <th>BarCode Reader 1</th>
+                                        <th>@ViewBag.table_Linkby</th>
+                                        <th>
+                                            <select class="form-select td_reason" id="select_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" disabled>
+                                                <option value="0">@ViewBag.btn_barcode_none</option>
+                                                <option value="1" selected="selected">TopBarCode</option>
+                                                <option value="2">BottomBarCode</option>
+                                            </select>
+                                        </th>
+                                    </tr>
+                                }
+                                else if (sett.Name == "Enable")
+                                {
+                                    <tr>
+                                        <th></th>
+                                        <th>@ViewBag.table_enable</th>
+                                        <th>
+                                            <div class="btn-group" role="group">
+                                                <button type="button" id="btn_Y_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" onclick="btn_true('@sett.Group-@sett.Type-@sett.Name')" class="btn btn-@((sett.Value == "true" || sett.Value == "TRUE" || sett.Value == "True") ? "primary" : "secondary")">@ViewBag.btn_true</button>
+                                                <button type="button" id="btn_N_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" onclick="btn_false('@sett.Group-@sett.Type-@sett.Name')" class="btn btn-@((sett.Value == "true" || sett.Value == "TRUE" || sett.Value == "True") ? "secondary" : "primary")">@ViewBag.btn_False</button>
+                                            </div>
+                                        </th>
+                                    </tr>
+                                }
+                                else if (sett.Name == "Port")
+                                {
+                                    <tr>
+                                        <th></th>
+                                        <th>@ViewBag.table_port</th>
+                                        <th>
+                                            <select class="form-select td_reason" id="select_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name">
+                                                @for (int i = 0; i < myPorts.Length; i++)
+                                                {
+                                                    <option value="@myPorts[i]" selected="@(myPorts[i] == sett.Value)">@myPorts[i]</option>
+                                                }
+                                                <option value="RJ45" selected="@(sett.Value == "RJ45")">RJ45</option>
+                                            </select>
+                                        </th>
+                                    </tr>
+                                }
+                                else if (sett.Name == "start_message")
+                                {
+                                    <tr>
+                                        <th></th>
+                                        <th>@ViewBag.table_STmessage</th>
+                                        <th><input type="text" id="txt_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" class="form-control" required value="@sett.Value"></th>
+                                    </tr>
+                                }
+                                else if (sett.Name == "read_failure_message")
+                                {
+                                    <tr>
+                                        <th></th>
+                                        <th>@ViewBag.table_ERRmessage</th>
+                                        <th><input type="text" id="txt_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" class="form-control" required value="@sett.Value"></th>
+                                    </tr>
+                                }
+                            }@foreach (MVCSETTING sett in settings.Where(s => s.Type == "Reader1"))
+                            {
+                                @if (sett.Name == "Type")
+                                {
+                                    <tr id="choose_COM_@sett.Group-@sett.Type-@sett.Name" style="display:@(port1.Contains("COM")? "" : "none")">
+                                        <th></th>
+                                        <th>@ViewBag.table_format</th>
+                                        <th>
+                                            <select class="form-select td_reason" id="select_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name">
+                                                <option value="RS232" selected="@(sett.Value == "RS232")">RS232</option>
+                                                <option value="RS485" selected="@(sett.Value == "RS485")">RS485</option>
+                                            </select>
+                                        </th>
+                                    </tr>
+                                }
+                                else if (sett.Name == "BaudRate")
+                                {
+                                    <tr id="choose_COM_@sett.Group-@sett.Type-@sett.Name" style="display:@(port1.Contains("COM")? "" : "none")">
+                                        <th></th>
+                                        <th>@ViewBag.table_baudrate</th>
+                                        <th>
+                                            <select class="form-select td_reason" id="select_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name">
+                                                <option value="4800" selected="@(sett.Value == "4800")">4800</option>
+                                                <option value="9600" selected="@(sett.Value == "9600")">9600</option>
+                                                <option value="19200" selected="@(sett.Value == "19200")">19200</option>
+                                                <option value="38400" selected="@(sett.Value == "38400")">38400</option>
+                                                <option value="57600" selected="@(sett.Value == "57600")">57600</option>
+                                                <option value="115200" selected="@(sett.Value == "115200")">115200</option>
+                                                <option value="230400" selected="@(sett.Value == "230400")">230400</option>
+                                            </select>
+                                        </th>
+                                    </tr>
+                                }
+                                else if (sett.Name == "Parity")
+                                {
+                                    <tr id="choose_COM_@sett.Group-@sett.Type-@sett.Name" style="display:@(port1.Contains("COM")? "" : "none")">
+                                        <th></th>
+                                        <th>@ViewBag.table_parity</th>
+                                        <th>
+                                            <select class="form-select td_reason" id="select_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name">
+                                                <option value="0" selected="@(sett.Value == "0")">None</option>
+                                                <option value="1" selected="@(sett.Value == "1")">Odd</option>
+                                                <option value="2" selected="@(sett.Value == "2")">Even</option>
+                                            </select>
+                                        </th>
+                                    </tr>
+                                }
+                                else if (sett.Name == "DataBits")
+                                {
+                                    <tr id="choose_COM_@sett.Group-@sett.Type-@sett.Name" style="display:@(port1.Contains("COM")? "" : "none")">
+                                        <th></th>
+                                        <th>@ViewBag.table_databits</th>
+                                        <th>
+                                            <select class="form-select td_reason" id="select_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name">
+                                                <option value="8" selected="@(sett.Value == "8")">8</option>
+                                                <option value="7" selected="@(sett.Value == "7")">7</option>
+                                                <option value="6" selected="@(sett.Value == "6")">6</option>
+                                                <option value="5" selected="@(sett.Value == "5")">5</option>
+                                            </select>
+                                        </th>
+                                    </tr>
+                                }
+                                else if (sett.Name == "StopBit")
+                                {
+                                    <tr id="choose_COM_@sett.Group-@sett.Type-@sett.Name" style="display:@(port1.Contains("COM")? "" : "none")">
+                                        <th></th>
+                                        <th>@ViewBag.table_stopbit</th>
+                                        <th>
+                                            <select class="form-select td_reason" id="select_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name">
+                                                <option value="1" selected="@(sett.Value == "1")">1</option>
+                                                <option value="1.5" selected="@(sett.Value == "1.5")">1.5</option>
+                                                <option value="2" selected="@(sett.Value == "2")">2</option>
+                                            </select>
+                                        </th>
+                                    </tr>
+                                }
+                            }@foreach (MVCSETTING sett in settings.Where(s => s.Type == "Reader1"))
+                            {
+                                @if (sett.Name == "IP")
+                                {
+                                    <tr id="choose_RJ_@sett.Group-@sett.Type-@sett.Name" style="display:@(port1 == "RJ45"? "" : "none")">
+                                        <th></th>
+                                        <th>@ViewBag.table_tcpip</th>
+                                        <th><input type="text" id="txt_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" class="form-control" required value="@sett.Value"></th>
+                                    </tr>
+                                }
+                                else if (sett.Name == "TCP_port")
+                                {
+                                    <tr id="choose_RJ_@sett.Group-@sett.Type-@sett.Name" style="display:@(port1 == "RJ45"? "" : "none")">
+                                        <th></th>
+                                        <th>@ViewBag.table_tcpport</th>
+                                        <th><input type="text" id="txt_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" class="form-control" required value="@sett.Value"></th>
+                                    </tr>
+                                }
+                            }
+                            @foreach (MVCSETTING sett in settings.Where(s => s.Type == "Reader1"))
+                            {
+                                if (sett.Name == "WritePrefix"@* || sett.Name == "WriteSeparator" *@|| sett.Name == "WriteSuffix" || sett.Name == "WriteTimeout")
+                                {
+                                    <tr>
+                                        @if (sett.Name == "WritePrefix")
+                                        {
+                                            <th></th>
+                                            <th>@ViewBag.table_writeprefix</th>
+                                            <th>
+                                                <select class="form-select td_reason" id="select_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name">
+                                                    <option value="0" selected="@(sett.Value == "0")">Disable</option>
+                                                    <option value="1" selected="@(sett.Value == "1")">Space</option>
+                                                    <option value="2" selected="@(sett.Value == "2")">NUL(Null)</option>
+                                                    <option value="3)" selected="@(sett.Value == "3")">SOH(Start of Heeading)</option>
+                                                    <option value="4" selected="@(sett.Value == "4")">STX(Start of Text)</option>
+                                                    <option value="5" selected="@(sett.Value == "5")">ETX(End of Text)</option>
+                                                    <option value="6" selected="@(sett.Value == "6")">EOT(End of Tranmission)</option>
+                                                    <option value="7" selected="@(sett.Value == "7")">ENQ(Enquiry)</option>
+                                                    <option value="8" selected="@(sett.Value == "8")">Ack(Acknowledge)</option>
+                                                    <option value="9" selected="@(sett.Value == "9")">LF(Line Feed)</option>
+                                                    <option value="10" selected="@(sett.Value == "10")">CR(Carriage Return)</option>
+                                                    <option value="11" selected="@(sett.Value == "11")">CRLF(Carriage Return Line Feed)</option>
+                                                </select>
+                                            </th>
+                                        }
+                                        @*else if (sett.Name == "WriteSeparator")
+                                {
+                                <th></th>
+                                <th>@ViewBag.table_writeseparator</th>
+                                <th>
+                                <select class="form-select td_reason" id="select_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name">
+                                <option value="Disable" selected="@(sett.Value == "Disable")">Disable</option>
+                                <option value="Space" selected="@(sett.Value == "Space")">Space</option>
+                                <option value="NUL(Null)" selected="@(sett.Value == "NUL(Null)")">NUL(Null)</option>
+                                <option value="SOH(Start of Heeading)" selected="@(sett.Value == "SOH(Start of Heeading)")">SOH(Start of Heeading)</option>
+                                <option value="STX(Start of Text)" selected="@(sett.Value == "STX(Start of Text)")">STX(Start of Text)</option>
+                                <option value="ETX(End of Text)" selected="@(sett.Value == "ETX(End of Text)")">ETX(End of Text)</option>
+                                <option value="EOT(End of Tranmission)" selected="@(sett.Value == "EOT(End of Tranmission)")">EOT(End of Tranmission)</option>
+                                <option value="ENQ(Enquiry)" selected="@(sett.Value == "ENQ(Enquiry)")">ENQ(Enquiry)</option>
+                                <option value="Ack(Acknowledge)" selected="@(sett.Value == "Ack(Acknowledge)")">Ack(Acknowledge)</option>
+                                <option value="LF(Line Feed)" selected="@(sett.Value == "LF(Line Feed)")">LF(Line Feed)</option>
+                                <option value="CR(Carriage Return)" selected="@(sett.Value == "CR(Carriage Return)")">CR(Carriage Return)</option>
+                                <option value="CRLF(Carriage Return Line Feed)" selected="@(sett.Value == "CRLF(Carriage Return Line Feed)")">CRLF(Carriage Return Line Feed)</option>
+                                </select>
+                                </th>
+                                }*@
+                                        else if (sett.Name == "WriteSuffix")
+                                        {
+                                            <th></th>
+                                            <th>@ViewBag.table_writesuffix</th>
+                                            <th>
+                                                <select class="form-select td_reason" id="select_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name">
+                                                    <option value="0" selected="@(sett.Value == "0")">Disable</option>
+                                                    <option value="1" selected="@(sett.Value == "1")">Space</option>
+                                                    <option value="2" selected="@(sett.Value == "2")">NUL(Null)</option>
+                                                    <option value="3)" selected="@(sett.Value == "3")">SOH(Start of Heeading)</option>
+                                                    <option value="4" selected="@(sett.Value == "4")">STX(Start of Text)</option>
+                                                    <option value="5" selected="@(sett.Value == "5")">ETX(End of Text)</option>
+                                                    <option value="6" selected="@(sett.Value == "6")">EOT(End of Tranmission)</option>
+                                                    <option value="7" selected="@(sett.Value == "7")">ENQ(Enquiry)</option>
+                                                    <option value="8" selected="@(sett.Value == "8")">Ack(Acknowledge)</option>
+                                                    <option value="9" selected="@(sett.Value == "9")">LF(Line Feed)</option>
+                                                    <option value="10" selected="@(sett.Value == "10")">CR(Carriage Return)</option>
+                                                    <option value="11" selected="@(sett.Value == "11")">CRLF(Carriage Return Line Feed)</option>
+                                                </select>
+                                            </th>
+                                        }
+                                    </tr>
+                                }
+                            }
+                            @foreach (MVCSETTING sett in settings.Where(s => s.Type == "Reader2"))
+                            {
+                                @if (sett.Name == "Name")
+                                {
+                                    <tr>
+                                        <th>BarCode Reader 2</th>
+                                        <th>@ViewBag.table_Linkby</th>
+                                        <th>
+                                            @*<select class="form-select td_reason" id="select_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name">
+                                    <option value="0" selected="@(sett.Value == "0")">@ViewBag.btn_barcode_none</option>
+                                    <option value="1" selected="@(sett.Value == "1")">TopBarCode</option>
+                                    <option value="2" selected="@(sett.Value == "2")">BottomBarCode</option>
+                                    </select>*@
+                                            <select class="form-select td_reason" id="select_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" disabled>
+                                                <option value="0">@ViewBag.btn_barcode_none</option>
+                                                <option value="1">TopBarCode</option>
+                                                <option value="2" selected="selected">BottomBarCode</option>
+                                            </select>
+                                        </th>
+                                    </tr>
+                                }
+                                else if (sett.Name == "Enable")
+                                {
+                                    <tr>
+                                        <th></th>
+                                        <th>@ViewBag.table_enable</th>
+                                        <th>
+                                            <div class="btn-group" role="group">
+                                                <button type="button" id="btn_Y_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" onclick="btn_true('@sett.Group-@sett.Type-@sett.Name')" class="btn btn-@((sett.Value == "true" || sett.Value == "TRUE" || sett.Value == "True") ? "primary" : "secondary")">@ViewBag.btn_true</button>
+                                                <button type="button" id="btn_N_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" onclick="btn_false('@sett.Group-@sett.Type-@sett.Name')" class="btn btn-@((sett.Value == "true" || sett.Value == "TRUE" || sett.Value == "True") ? "secondary" : "primary")">@ViewBag.btn_False</button>
+                                            </div>
+                                        </th>
+                                    </tr>
+                                }
+                                else if (sett.Name == "Port")
+                                {
+                                    <tr>
+                                        <th></th>
+                                        <th>@ViewBag.table_port</th>
+                                        <th>
+                                            <select class="form-select td_reason" id="select_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name">
+                                                @for (int i = 0; i < myPorts.Length; i++)
+                                                {
+                                                    <option value="@myPorts[i]" selected="@(myPorts[i] == sett.Value)">@myPorts[i]</option>
+                                                }
+                                                <option value="RJ45" selected="@(sett.Value == "RJ45")">RJ45</option>
+                                            </select>
+                                        </th>
+                                    </tr>
+                                }
+                                else if (sett.Name == "start_message")
+                                {
+                                    <tr>
+                                        <th></th>
+                                        <th>@ViewBag.table_STmessage</th>
+                                        <th><input type="text" id="txt_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" class="form-control" required value="@sett.Value"></th>
+                                    </tr>
+                                }
+                                else if (sett.Name == "read_failure_message")
+                                {
+                                    <tr>
+                                        <th></th>
+                                        <th>@ViewBag.table_ERRmessage</th>
+                                        <th><input type="text" id="txt_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" class="form-control" required value="@sett.Value"></th>
+                                    </tr>
+                                }
+                            }@foreach (MVCSETTING sett in settings.Where(s => s.Type == "Reader2"))
+                            {
+                                @if (sett.Name == "Type")
+                                {
+                                    <tr id="choose_COM_@sett.Group-@sett.Type-@sett.Name" style="display:@(port2.Contains("COM")? "" : "none")">
+                                        <th></th>
+                                        <th>@ViewBag.table_format</th>
+                                        <th>
+                                            <select class="form-select td_reason" id="select_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name">
+                                                <option value="RS232" selected="@(sett.Value == "RS232")">RS232</option>
+                                                <option value="RS485" selected="@(sett.Value == "RS485")">RS485</option>
+                                            </select>
+                                        </th>
+                                    </tr>
+                                }
+                                else if (sett.Name == "BaudRate")
+                                {
+                                    <tr id="choose_COM_@sett.Group-@sett.Type-@sett.Name" style="display:@(port2.Contains("COM")? "" : "none")">
+                                        <th></th>
+                                        <th>@ViewBag.table_baudrate</th>
+                                        <th>
+                                            <select class="form-select td_reason" id="select_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name">
+                                                <option value="4800" selected="@(sett.Value == "4800")">4800</option>
+                                                <option value="9600" selected="@(sett.Value == "9600")">9600</option>
+                                                <option value="19200" selected="@(sett.Value == "19200")">19200</option>
+                                                <option value="38400" selected="@(sett.Value == "38400")">38400</option>
+                                                <option value="57600" selected="@(sett.Value == "57600")">57600</option>
+                                                <option value="115200" selected="@(sett.Value == "115200")">115200</option>
+                                                <option value="230400" selected="@(sett.Value == "230400")">230400</option>
+                                            </select>
+                                        </th>
+                                    </tr>
+                                }
+                                else if (sett.Name == "Parity")
+                                {
+                                    <tr id="choose_COM_@sett.Group-@sett.Type-@sett.Name" style="display:@(port2.Contains("COM")? "" : "none")">
+                                        <th></th>
+                                        <th>@ViewBag.table_parity</th>
+                                        <th>
+                                            <select class="form-select td_reason" id="select_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name">
+                                                <option value="0" selected="@(sett.Value == "0")">None</option>
+                                                <option value="1" selected="@(sett.Value == "1")">Odd</option>
+                                                <option value="2" selected="@(sett.Value == "2")">Even</option>
+                                            </select>
+                                        </th>
+                                    </tr>
+                                }
+                                else if (sett.Name == "DataBits")
+                                {
+                                    <tr id="choose_COM_@sett.Group-@sett.Type-@sett.Name" style="display:@(port2.Contains("COM")? "" : "none")">
+                                        <th></th>
+                                        <th>@ViewBag.table_databits</th>
+                                        <th>
+                                            <select class="form-select td_reason" id="select_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name">
+                                                <option value="8" selected="@(sett.Value == "8")">8</option>
+                                                <option value="7" selected="@(sett.Value == "7")">7</option>
+                                                <option value="6" selected="@(sett.Value == "6")">6</option>
+                                                <option value="5" selected="@(sett.Value == "5")">5</option>
+                                            </select>
+                                        </th>
+                                    </tr>
+                                }
+                                else if (sett.Name == "StopBit")
+                                {
+                                    <tr id="choose_COM_@sett.Group-@sett.Type-@sett.Name" style="display:@(port2.Contains("COM")? "" : "none")">
+                                        <th></th>
+                                        <th>@ViewBag.table_stopbit</th>
+                                        <th>
+                                            <select class="form-select td_reason" id="select_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name">
+                                                <option value="1" selected="@(sett.Value == "1")">1</option>
+                                                <option value="1.5" selected="@(sett.Value == "1.5")">1.5</option>
+                                                <option value="2" selected="@(sett.Value == "2")">2</option>
+                                            </select>
+                                        </th>
+                                    </tr>
+                                }
+
+                            }@foreach (MVCSETTING sett in settings.Where(s => s.Type == "Reader2"))
+                            {
+                                @if (sett.Name == "IP")
+                                {
+                                    <tr id="choose_RJ_@sett.Group-@sett.Type-@sett.Name" style="display:@(port2 == "RJ45"? "" : "none")">
+                                        <th></th>
+                                        <th>@ViewBag.table_tcpip</th>
+                                        <th><input type="text" id="txt_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" class="form-control" required value="@sett.Value"></th>
+                                    </tr>
+                                }
+                                else if (sett.Name == "TCP_port")
+                                {
+                                    <tr id="choose_RJ_@sett.Group-@sett.Type-@sett.Name" style="display:@(port2 == "RJ45"? "" : "none")">
+                                        <th></th>
+                                        <th>@ViewBag.table_tcpport</th>
+                                        <th><input type="text" id="txt_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" class="form-control" required value="@sett.Value"></th>
+                                    </tr>
+                                }
+                            }
+                            <tr></tr>
+                            @foreach (MVCSETTING sett in settings.Where(s => s.Type == "Reader2"))
+                            {
+                                if (sett.Name == "WritePrefix"@* || sett.Name == "WriteSeparator" *@|| sett.Name == "WriteSuffix" || sett.Name == "WriteTimeout")
+                                {
+                                    <tr>
+                                        @if (sett.Name == "WritePrefix")
+                                        {
+                                            <th></th>
+                                            <th>@ViewBag.table_writeprefix</th>
+                                            <th>
+                                                <select class="form-select td_reason" id="select_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name">
+                                                    <option value="0" selected="@(sett.Value == "0")">Disable</option>
+                                                    <option value="1" selected="@(sett.Value == "1")">Space</option>
+                                                    <option value="2" selected="@(sett.Value == "2")">NUL(Null)</option>
+                                                    <option value="3)" selected="@(sett.Value == "3")">SOH(Start of Heeading)</option>
+                                                    <option value="4" selected="@(sett.Value == "4")">STX(Start of Text)</option>
+                                                    <option value="5" selected="@(sett.Value == "5")">ETX(End of Text)</option>
+                                                    <option value="6" selected="@(sett.Value == "6")">EOT(End of Tranmission)</option>
+                                                    <option value="7" selected="@(sett.Value == "7")">ENQ(Enquiry)</option>
+                                                    <option value="8" selected="@(sett.Value == "8")">Ack(Acknowledge)</option>
+                                                    <option value="9" selected="@(sett.Value == "9")">LF(Line Feed)</option>
+                                                    <option value="10" selected="@(sett.Value == "10")">CR(Carriage Return)</option>
+                                                    <option value="11" selected="@(sett.Value == "11")">CRLF(Carriage Return Line Feed)</option>
+                                                </select>
+                                            </th>
+                                        }
+                                        @*else if (sett.Name == "WriteSeparator")
+                                {
+                                <th></th>
+                                <th>@ViewBag.table_writeseparator</th>
+                                <th>
+                                <select class="form-select td_reason" id="select_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name">
+                                <option value="Disable" selected="@(sett.Value == "Disable")">Disable</option>
+                                <option value="Space" selected="@(sett.Value == "Space")">Space</option>
+                                <option value="NUL(Null)" selected="@(sett.Value == "NUL(Null)")">NUL(Null)</option>
+                                <option value="SOH(Start of Heeading)" selected="@(sett.Value == "SOH(Start of Heeading)")">SOH(Start of Heeading)</option>
+                                <option value="STX(Start of Text)" selected="@(sett.Value == "STX(Start of Text)")">STX(Start of Text)</option>
+                                <option value="ETX(End of Text)" selected="@(sett.Value == "ETX(End of Text)")">ETX(End of Text)</option>
+                                <option value="EOT(End of Tranmission)" selected="@(sett.Value == "EOT(End of Tranmission)")">EOT(End of Tranmission)</option>
+                                <option value="ENQ(Enquiry)" selected="@(sett.Value == "ENQ(Enquiry)")">ENQ(Enquiry)</option>
+                                <option value="Ack(Acknowledge)" selected="@(sett.Value == "Ack(Acknowledge)")">Ack(Acknowledge)</option>
+                                <option value="LF(Line Feed)" selected="@(sett.Value == "LF(Line Feed)")">LF(Line Feed)</option>
+                                <option value="CR(Carriage Return)" selected="@(sett.Value == "CR(Carriage Return)")">CR(Carriage Return)</option>
+                                <option value="CRLF(Carriage Return Line Feed)" selected="@(sett.Value == "CRLF(Carriage Return Line Feed)")">CRLF(Carriage Return Line Feed)</option>
+                                </select>
+                                </th>
+                                }*@
+                                        else if (sett.Name == "WriteSuffix")
+                                        {
+                                            <th></th>
+                                            <th>@ViewBag.table_writesuffix</th>
+                                            <th>
+                                                <select class="form-select td_reason" id="select_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name">
+                                                    <option value="0" selected="@(sett.Value == "0")">Disable</option>
+                                                    <option value="1" selected="@(sett.Value == "1")">Space</option>
+                                                    <option value="2" selected="@(sett.Value == "2")">NUL(Null)</option>
+                                                    <option value="3)" selected="@(sett.Value == "3")">SOH(Start of Heeading)</option>
+                                                    <option value="4" selected="@(sett.Value == "4")">STX(Start of Text)</option>
+                                                    <option value="5" selected="@(sett.Value == "5")">ETX(End of Text)</option>
+                                                    <option value="6" selected="@(sett.Value == "6")">EOT(End of Tranmission)</option>
+                                                    <option value="7" selected="@(sett.Value == "7")">ENQ(Enquiry)</option>
+                                                    <option value="8" selected="@(sett.Value == "8")">Ack(Acknowledge)</option>
+                                                    <option value="9" selected="@(sett.Value == "9")">LF(Line Feed)</option>
+                                                    <option value="10" selected="@(sett.Value == "10")">CR(Carriage Return)</option>
+                                                    <option value="11" selected="@(sett.Value == "11")">CRLF(Carriage Return Line Feed)</option>
+                                                </select>
+                                            </th>
+                                        }
+                                    </tr>
+                                }
+                            }
+                            @foreach (MVCSETTING sett in settings.Where(s => s.Type == "Machine"))
+                            {
+                                @if (sett.Name == "Enable")
+                                {
+                                    <tr>
+                                        <th>@ViewBag.table_machine</th>
+                                        <th>@ViewBag.table_enable</th>
+                                        <th>
+                                            <div class="btn-group" role="group">
+                                                <button type="button" id="btn_Y_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" onclick="btn_true('@sett.Group-@sett.Type-@sett.Name')" class="btn btn-@((sett.Value == "true" || sett.Value == "TRUE" || sett.Value == "True") ? "primary" : "secondary")">@ViewBag.btn_true</button>
+                                                <button type="button" id="btn_N_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" onclick="btn_false('@sett.Group-@sett.Type-@sett.Name')" class="btn btn-@((sett.Value == "true" || sett.Value == "TRUE" || sett.Value == "True") ? "secondary" : "primary")">@ViewBag.btn_False</button>
+                                            </div>
+                                        </th>
+                                    </tr>
+                                }
+                                else if (sett.Name == "DecimalPlaces")//修改ing
+                                {
+                                    <tr>
+                                        <th></th>
+                                        <th>@ViewBag.table_decimalplaces</th>
+                                        <th><input type="text" id="txt_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" class="form-control" required value="@sett.Value"></th>
+                                    </tr>
+                                }
+                                else if (sett.Name == "Mode")
+                                {
+                                    <tr>
+                                        <th></th>
+                                        <th>@ViewBag.table_datatype</th>
+                                        <th>
+                                            <select class="form-select td_reason" id="select_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name">
+                                                <option value="1" selected="@(sett.Value == "1")">Recipe Name</option>
+                                                <option value="2" selected="@(sett.Value == "2")">Width</option>
+                                                <option value="3" selected="@(sett.Value == "3")">Both</option>
+                                            </select>
+                                        </th>
+                                    </tr>
+                                }
+                                else if (sett.Name == "RecipeName")
+                                {
+                                    <tr>
+                                        <th></th>
+                                        <th>@ViewBag.table_D_RN (0~65535)</th>
+                                        <th><input type="text" id="txt_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" class="form-control" required value="@sett.Value"></th>
+                                    </tr>
+                                }
+                                else if (sett.Name == "Width")
+                                {
+                                    <tr>
+                                        <th></th>
+                                        <th>@ViewBag.table_D_wid (0~65535)</th>
+                                        <th><input type="text" id="txt_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" class="form-control" required value="@sett.Value"></th>
+                                    </tr>
+                                }
+                                else if (sett.Name == "RNAddrType")
+                                {
+                                    <tr>
+                                        <th></th>
+                                        <th>@ViewBag.table_RNAddrType</th>
+                                        <th>
+                                            <select class="form-select td_reason" id="select_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name">
+                                                <option value="0" selected="@(sett.Value == "0")">@ViewBag.sele_LowAddressHighByteFirst</option>
+                                                <option value="1" selected="@(sett.Value == "1")">@ViewBag.sele_LowAddressLowByteFirst</option>
+                                                <option value="2" selected="@(sett.Value == "2")">@ViewBag.sele_HighAddressHighByteFirst</option>
+                                                <option value="3" selected="@(sett.Value == "3")">@ViewBag.sele_HighAddressLowByteFirst</option>
+                                            </select>
+                                        </th>
+                                    </tr>
+                                }
+                                else if (sett.Name == "WidAddrType")
+                                {
+                                    <tr>
+                                        <th></th>
+                                        <th>@ViewBag.table_WidAddrType</th>
+                                        <th>
+                                            <select class="form-select td_reason" id="select_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name">
+                                                <option value="0" selected="@(sett.Value == "0")">@ViewBag.sele_LowAddressFirst</option>
+                                                <option value="1" selected="@(sett.Value == "1")">@ViewBag.sele_HighAddressFirst</option>
+                                            </select>
+                                        </th>
+                                    </tr>
+                                }
+                                else if (sett.Name == "Port")
+                                {
+                                    <tr>
+                                        <th></th>
+                                        <th>@ViewBag.table_port</th>
+                                        <th>
+                                            <select class="form-select td_reason" id="select_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name">
+                                                @for (int i = 0; i < myPorts.Length; i++)
+                                                {
+                                                    <option value="@myPorts[i]" selected="@(myPorts[i] == sett.Value)">@myPorts[i]</option>
+                                                }
+                                                <option value="RJ45" selected="@(sett.Value == "RJ45")">RJ45</option>
+                                            </select>
+                                        </th>
+                                    </tr>
+                                }
+                            }@foreach (MVCSETTING sett in settings.Where(s => s.Type == "Machine"))
+                            {
+                                @if (sett.Name == "Type")
+                                {
+                                    <tr id="choose_COM_@sett.Group-@sett.Type-@sett.Name" style="display:@(port2.Contains("COM")? "" : "none")">
+                                        <th></th>
+                                        <th>@ViewBag.table_format</th>
+                                        <th>
+                                            <select class="form-select td_reason" id="select_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name">
+                                                <option value="RS232" selected="@(sett.Value == "RS232")">RS232</option>
+                                                <option value="RS485" selected="@(sett.Value == "RS485")">RS485</option>
+                                            </select>
+                                        </th>
+                                    </tr>
+                                }
+                                else if (sett.Name == "BaudRate")
+                                {
+                                    <tr id="choose_COM_@sett.Group-@sett.Type-@sett.Name" style="display:@(port2.Contains("COM")? "" : "none")">
+                                        <th></th>
+                                        <th>@ViewBag.table_baudrate</th>
+                                        <th>
+                                            <select class="form-select td_reason" id="select_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name">
+                                                <option value="4800" selected="@(sett.Value == "4800")">4800</option>
+                                                <option value="9600" selected="@(sett.Value == "9600")">9600</option>
+                                                <option value="19200" selected="@(sett.Value == "19200")">19200</option>
+                                                <option value="38400" selected="@(sett.Value == "38400")">38400</option>
+                                                <option value="57600" selected="@(sett.Value == "57600")">57600</option>
+                                                <option value="115200" selected="@(sett.Value == "115200")">115200</option>
+                                                <option value="230400" selected="@(sett.Value == "230400")">230400</option>
+                                            </select>
+                                        </th>
+                                    </tr>
+                                }
+                                else if (sett.Name == "Parity")
+                                {
+                                    <tr id="choose_COM_@sett.Group-@sett.Type-@sett.Name" style="display:@(port2.Contains("COM")? "" : "none")">
+                                        <th></th>
+                                        <th>@ViewBag.table_parity</th>
+                                        <th>
+                                            <select class="form-select td_reason" id="select_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name">
+                                                <option value="0" selected="@(sett.Value == "0")">None</option>
+                                                <option value="1" selected="@(sett.Value == "1")">Odd</option>
+                                                <option value="2" selected="@(sett.Value == "2")">Even</option>
+                                            </select>
+                                        </th>
+                                    </tr>
+                                }
+                                else if (sett.Name == "DataBits")
+                                {
+                                    <tr id="choose_COM_@sett.Group-@sett.Type-@sett.Name" style="display:@(port2.Contains("COM")? "" : "none")">
+                                        <th></th>
+                                        <th>@ViewBag.table_databits</th>
+                                        <th>
+                                            <select class="form-select td_reason" id="select_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name">
+                                                <option value="8" selected="@(sett.Value == "8")">8</option>
+                                                <option value="7" selected="@(sett.Value == "7")">7</option>
+                                                <option value="6" selected="@(sett.Value == "6")">6</option>
+                                                <option value="5" selected="@(sett.Value == "5")">5</option>
+                                            </select>
+                                        </th>
+                                    </tr>
+                                }
+                                else if (sett.Name == "StopBit")
+                                {
+                                    <tr id="choose_COM_@sett.Group-@sett.Type-@sett.Name" style="display:@(port2.Contains("COM")? "" : "none")">
+                                        <th></th>
+                                        <th>@ViewBag.table_stopbit</th>
+                                        <th>
+                                            <select class="form-select td_reason" id="select_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name">
+                                                <option value="1" selected="@(sett.Value == "1")">1</option>
+                                                <option value="1.5" selected="@(sett.Value == "1.5")">1.5</option>
+                                                <option value="2" selected="@(sett.Value == "2")">2</option>
+                                            </select>
+                                        </th>
+                                    </tr>
+                                }
+                            }@foreach (MVCSETTING sett in settings.Where(s => s.Type == "Machine"))
+                            {
+                                @if (sett.Name == "IP")
+                                {
+                                    <tr id="choose_RJ_@sett.Group-@sett.Type-@sett.Name" style="display:@(port2 == "RJ45"? "" : "none")">
+                                        <th></th>
+                                        <th>@ViewBag.table_tcpip</th>
+                                        <th><input type="text" id="txt_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" class="form-control" required value="@sett.Value"></th>
+                                    </tr>
+                                }
+                                else if (sett.Name == "TCP_port")
+                                {
+                                    <tr id="choose_RJ_@sett.Group-@sett.Type-@sett.Name" style="display:@(port2 == "RJ45"? "" : "none")">
+                                        <th></th>
+                                        <th>@ViewBag.table_tcpport</th>
+                                        <th><input type="text" id="txt_@sett.Group-@sett.Type-@sett.Name" name="@sett.Group-@sett.Type-@sett.Name" class="form-control" required value="@sett.Value"></th>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+        </div>
+</body>
+
+<script>
+    //權限確認
+    var isLoggedIn = getCookie('isLoggedIn');
+    var user_name = getCookie('user_name');
+    var page = getCookie('Page');
+    var page_tab = getCookie('Page_Tab')
+
+    //如過不是登入狀態則跳轉回首頁
+    if (user_name === undefined) {
+        window.location.href = '/';
+    }
+    /****************************   內部變數   ****************************/
+    var isSetting = true;
+    var dfsdfsdfsf = btoa('Administrator');
+    var dfdfdg = btoa('sunsda');
+    var OutPort_type = ['Reader1', 'Reader2', 'Machine'];
+    var OriginalData_type = ['Common', 'Hermes', 'WorkOrder', 'outport', 'Digital'];
+    var Version = document.getElementById('select_Hermes-Hermes-Version').value;
+
+
+    //依據版本關閉/開啟選項
+    if (Version < 140) {
+        VersionLow140();
+    }
+    if (Version < 130) {
+        document.getElementById("WorkOrder-BatchID-Version-1.2").style.display = 'none';
+    }
+
+    /***   儲存Setting原始資料   ***/
+    var Common_originalData = {}, Hermes_originalData = {}, WorkOrder_originalData = {}, OutPorts_originalData = {}, Digital_originalData = {};
+    for (var i = 0; i < 5; i++) { originalData(i, true); }
+
+    if (page != undefined) {
+        Tab_click(page_tab, page);
+    }
+    /****************************   共用指令   ****************************/
+    //取得cookie
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+    }
+
+    //Tab選項背景
+    function updateTabSelection(tabLinkId) {
+        //移除除了選中的Tab背景
+        var tabLinks = document.querySelectorAll(".nav-link");
+        tabLinks.forEach(function (link) {
+            link.classList.remove("active");
+        });
+
+        //將選中的Tab背景設為白色
+        var selectedTabLink = document.getElementById(tabLinkId);
+        if (selectedTabLink) {
+            selectedTabLink.classList.add("active");
+        }
+    }
+
+    //將ViewBag的亂碼轉換為文字
+    function decodeHtmlEntities(input) {
+        var doc = new DOMParser().parseFromString(input, "text/html");
+        return doc.documentElement.textContent;
+    }
+
+    //數字且最大最小值
+    function isValidInteger(value, min, max) {
+        const intValue = parseInt(value, 10);
+        return !isNaN(value) && intValue >= min && intValue <= max;
+    }
+
+    //識別文字是否為true/false
+    function bool_identify(value) {
+        if (value == "TRUE") {
+            return true;
+        }
+        if (value == "True") {
+            return true;
+        }
+        if (value == "true") {
+            return true;
+        }
+        if (value == "FALSE") {
+            return false;
+        }
+        if (value == "False") {
+            return false;
+        }
+        if (value == "false") {
+            return false;
+        }
+    }
+
+    //是否為合法Port號
+    function port_range(msg_type, id) {
+        if (!isNaN(document.getElementById(id).value) && (parseInt(document.getElementById(id).value, 10) >= 0) && (parseInt(document.getElementById(id).value, 10) <= 65526)) {
+            return false;
+        } else {
+            msgbox(msg_type + "@ViewBag.table_tcpport:" + decodeHtmlEntities("@ViewBag.msg_portrange"));
+            return true;
+        }
+    }
+
+    //是否為合法IP格式
+    function validateIP(msg_type, id) {
+        var ipInput = document.getElementById(id);
+        var ipValue = ipInput.value;
+
+        // 空值不進行驗證
+        if (id == "txt_Hermes-Downstream-IP" && document.getElementById(id).value == "") {
+            return false;
+        }
+
+        // 使用正則表達式確認 IP 地址格式
+        var ipRegex = /^([0-9]{1,3}\.){3}[0-9]{1,3}$/;
+
+        if (ipRegex.test(ipValue)) {
+            // 切割 IP 地址的每個部分
+            var ipParts = ipValue.split('.');
+
+            // 驗證每個部分的數值是否介於 0 到 255 之間
+            var isValid = ipParts.every(function (part) {
+                var num = parseInt(part, 10);
+                return !isNaN(num) && num >= 0 && num <= 255;
+            });
+
+            if (isValid) {
+                return false;
+            } else {
+                // IP 地址部分的數值超出範圍
+                msgbox(msg_type + decodeHtmlEntities(":  @ViewBag.msg_validateIP"));
+                return true;
+            }
+        } else {
+            // 不是有效的 IP 地址格式
+            msgbox(msg_type + decodeHtmlEntities(":  @ViewBag.msg_validateIP"));
+            return true;
+        }
+    }
+
+    //CSV格式檢查
+    function validateCSV(csvData) {
+        const lines = csvData.split("\r\n");
+
+        for (let i = 1; i < lines.length; i++) {
+            const fields = lines[i].split(',');
+            var no = i - 160;
+
+            // 检查每行的字段数量是否超过11个
+            if (fields.length != 11 && i <= 160) {
+                msgbox("@ViewBag.msg_importfault" + "Alarms" + "@ViewBag.title_no" + i + "，@ViewBag.msg_CSVwrong");
+                return true;
+            }
+
+            if (fields.length != 11 && i > 160) {
+                msgbox("@ViewBag.msg_importfault" + "Warnings" + "@ViewBag.title_no" + no + "，@ViewBag.msg_CSVwrong");
+                return true;
+            }
+
+            //檢查Alarms及Warnings是否填錯
+            if (i <= 160 && fields[1] != "Alarms") {
+                msgbox("@ViewBag.msg_importfault" + "Alarms" + "@ViewBag.title_no" + i + "，@ViewBag.msg_A_typewrong");
+                return true;
+            }
+
+            if (i > 160 && fields[1] != "Warnings") {
+                msgbox("@ViewBag.msg_importfault" + "Warnings" + "@ViewBag.title_no" + no + "，@ViewBag.msg_W_typewrong");
+                return true;
+            }
+
+            //檢查ID及Number
+            if (fields[0] != i && i <= 160) {
+                msgbox("@ViewBag.msg_importfault" + fields[1] + "@ViewBag.title_no" + i + "，@ViewBag.msg_idwrong" + fields[0]);
+                return true;
+            }
+
+            if (fields[0] != i && i > 160) {
+                msgbox("@ViewBag.msg_importfault" + fields[1] + "@ViewBag.title_no" + no + "，@ViewBag.msg_idwrong" + fields[0]);
+                return true;
+            }
+
+            if (fields[1] == "Alarms" && fields[0] <= 160) {
+                if (fields[0] != fields[2]) {
+                    msgbox("@ViewBag.msg_importfault" + "Alarms" + "@ViewBag.title_no" + i + "，@ViewBag.msg_numberwrong" + fields[2]);
+                    return true;
+                }
+            }
+
+            if (fields[1] == "Warnings" && fields[0] > 160) {
+                if (fields[0] - 160 != fields[2]) {
+                    msgbox("@ViewBag.msg_importfault" + "Warnings" + "@ViewBag.title_no" + no + "，@ViewBag.msg_numberwrong" + fields[2]);
+                    return true;
+                }
+            }
+
+            // 检查每个字段是否符合ASCII及數值範圍
+            for (let j = 0; j < fields.length; j++) {
+                if (!isASCII(fields[j])) {
+                    msgbox("@ViewBag.msg_importfault" + fields[1] + "@ViewBag.title_no" + fields[2] + "，@ViewBag.msg_ASCIIwrong");
+                    return true;
+                }
+                if (j == 3) {
+                    if (!(fields[j] == 0 || fields[j] == 1)) {
+                        msgbox("@ViewBag.msg_importfault" + fields[1] + "@ViewBag.title_no" + fields[2] + "，" + "@ViewBag.title_state" + "@ViewBag.msg_rangewrong");
+                        return true;
+                    }
+                }
+                if (j === 6) {
+                    if (fields[j] != "") {
+                        // 如果是第七个字段，验证是否为整数且在0到16的范围内
+                        if (!isValidInteger(fields[j], 0, 16)) {
+                            msgbox("@ViewBag.msg_importfault" + fields[1] + "@ViewBag.title_no" + fields[2] + "，" + "@ViewBag.title_reason" + "@ViewBag.msg_rangewrong");
+                            return true;
+                        }
+                    }
+                }
+                if (j === 7) {
+                    if (fields[j] != "") {
+                        // 如果是第八个字段，验证是否为整数且在0到3的范围内
+                        if (!isValidInteger(fields[j], 0, 3)) {
+                            msgbox("@ViewBag.msg_importfault" + fields[1] + "@ViewBag.title_no" + fields[2] + "，" + "@ViewBag.title_level" + "@ViewBag.msg_rangewrong");
+                            return true;
+                        }
+                    }
+                }
+                if (j === 8) {
+                    if (fields[j] != "") {
+                        // 如果是第九个字段，验证是否为整数且在0到3的范围内
+                        if (!isValidInteger(fields[j], 0, 3)) {
+                            msgbox("@ViewBag.msg_importfault" + fields[1] + "@ViewBag.title_no" + fields[2] + "，" + "@ViewBag.title_op" + "@ViewBag.msg_rangewrong");
+                            return true;
+                        }
+                    }
+                }
+                if (j == 9) {
+                    if (!(fields[j] == 0 || fields[j] == 1)) {
+                        msgbox("@ViewBag.msg_importfault" + fields[1] + "@ViewBag.title_no" + fields[2] + "，" + "@ViewBag.title_remmote" + "@ViewBag.msg_rangewrong");
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+    const csvData = `...`;  // 将您的CSV数据替换到这里
+
+    // 比較兩個陣列是否相等
+    function arraysEqual(arr1, arr2) {
+        if (arr1.length !== arr2.length) return false;
+        for (var i = 0; i < arr1.length; i++) {
+            for (var key in arr1[i]) {
+                if (arr1[i][key] !== arr2[i][key]) return false;
+            }
+        }
+        return true;
+    }
+
+    /****************************   內部指令   ****************************/
+    //Tab_點擊
+    async function Tab_click(tab_id, setting_page_id) {
+        var isleave = true;
+
+        if (originalData(0, false) || originalData(1, false) || originalData(2, false) || originalData(3, false) || originalData(4, false)) {
+            isleave = await checkmsgbox(decodeHtmlEntities("@ViewBag.msg_isleave"));
+
+            if (isleave) {
+                location.reload();//回填設定頁面
+            }
+        }
+        if (!isleave) {
+            return;
+        }
+        document.getElementById("Hermes_setting").style.display = "none";
+        document.getElementById("workorder_setting").style.display = "none";
+        document.getElementById("Common_setting").style.display = "none";
+        document.getElementById("digital_setting").style.display = "none";
+        document.getElementById("outport_setting").style.display = "none";
+
+        document.getElementById(setting_page_id).style.display = "block";
+        document.cookie = 'Page=' + setting_page_id + '; path=/';
+        document.cookie = 'Page_Tab=' + tab_id + '; path=/';
+        updateTabSelection(tab_id);
+    }
+
+    //將系統參數的資料存到資料庫
+    async function save(id) {
+        var issave = false;
+        issave = await checkmsgbox(decodeHtmlEntities("@ViewBag.msg_issave"));
+
+        if (issave) {
+            document.getElementById('overlay').style.display = 'block';
+            msgbox(decodeHtmlEntities("@ViewBag.msg_saving"));
+            document.getElementById('msgbox_btn_close').style.display = 'none';
+
+            // 獲取所有的輸入框元素
+            var inputElements = document.querySelectorAll('#' + id + ' input:not([id^="SB_"])');
+            var buttonElements = document.querySelectorAll('#' + id + ' button:not([id^="SB_"])');
+            var selectElements = document.querySelectorAll('#' + id + ' select:not([id^="SB_"])');
+            // 創建一個 Promise 陣列
+            var promises = [];
+            var dataList = [];
+            var SUBdataList = [];
+            // 限制小數點位數到第二位
+            var regex = /^\d+(\.\d{0,2})?$/;
+
+            /****  Common檢查   ****/
+            //day
+            isValidInteger = /^\d+$/.test(document.getElementById('txt_AutoDelete-Log-Day').value);
+            if (id == "Common" && !((parseInt(document.getElementById('txt_AutoDelete-Log-Day').value, 10) > 0) && isValidInteger)) {
+                msgbox("Common " + decodeHtmlEntities("@ViewBag.lbl_days") + ":" + decodeHtmlEntities("@ViewBag.msg_isvaluebiggerthan0"));
+                return;
+            }
+            //information
+            if (id == "Common" && !(isASCII(document.getElementById('txt_MACHINE-MACHINE-ModelName').value))) {
+                msgbox("Common " + "@ViewBag.table_modelname" + ":" + "@ViewBag.msg_format_wrong");
+                return;
+            }
+            if (id == "Common" && !(isASCII(document.getElementById('txt_MACHINE-MACHINE-MachineID').value))) {
+                msgbox("Common " + "@ViewBag.table_machineid" + ":" + "@ViewBag.msg_format_wrong");
+                return;
+            }
+            if (id == "Common" && !(isASCII(document.getElementById('txt_MACHINE-MACHINE-DisplayName').value))) {
+                msgbox("Common " + "@ViewBag.table_displayname" + ":" + "@ViewBag.msg_format_wrong");
+                return;
+            }
+            var BoardMode = document.getElementById('select_MACHINE-MACHINE-BoardMode').value;
+            var Reader1_close = document.getElementById('btn_N_OutPort-Reader1-Enable').classList.contains('btn-primary');
+            var Reader2_close = document.getElementById('btn_N_OutPort-Reader2-Enable').classList.contains('btn-primary');
+            if (id == "Common" && BoardMode == "2" && Reader1_close && Reader2_close) {
+                msgbox("Common @ViewBag.table_BoardMode: @ViewBag.msg_open_reader");
+                return;
+            }
+            isValidInteger = /^\d+$/.test(document.getElementById('txt_MACHINE-MACHINE-fifoRange').value);
+            var Reserved_quantity = document.getElementById('txt_Hermes-Hermes-Reserved_quantity').value;
+            if (id == "Common" && !((parseInt(document.getElementById('txt_MACHINE-MACHINE-fifoRange').value, 10) >= Reserved_quantity) && (parseInt(document.getElementById('txt_MACHINE-MACHINE-fifoRange').value, 10) <= 50) && (parseInt(document.getElementById('txt_MACHINE-MACHINE-fifoRange').value, 10) > 1) && isValidInteger)) {
+                if (Reserved_quantity < 2) {
+                    msgbox("Common " + decodeHtmlEntities("@ViewBag.table_fifoRange") + ":" + decodeHtmlEntities("@ViewBag.msg_pleaseenter") + "2~50 @ViewBag.msg_P_Int");
+                } else {
+                    msgbox("Common " + decodeHtmlEntities("@ViewBag.table_fifoRange") + ":" + decodeHtmlEntities("@ViewBag.msg_pleaseenter") + Reserved_quantity + "~50 @ViewBag.msg_P_Int");
+                }
+                return;
+            }
+
+            /****  Hermes檢查   ****/
+            isValidInteger = /^\d+$/.test(document.getElementById('txt_Hermes-Hermes-CheckAliveInterval').value);
+            if (id == "Hermes" && !((parseInt(document.getElementById('txt_Hermes-Hermes-CheckAliveInterval').value, 10) > 0) && isValidInteger)) {
+                msgbox("Hermes " + decodeHtmlEntities("@ViewBag.table_checkalive1") + ':' + decodeHtmlEntities("@ViewBag.msg_isvaluebiggerthan0"));
+                return;
+            }
+            isValidInteger = regex.test(document.getElementById('txt_Hermes-Hermes-QueryResponseTimeout').value);
+            if (id == "Hermes" && !((parseInt(document.getElementById('txt_Hermes-Hermes-QueryResponseTimeout').value, 10) > 0) && isValidInteger)) {
+                msgbox("Hermes " + "@ViewBag.table_queryresponse1" + ':' + "@ViewBag.msg_isvaluefalse1" + "0" + "@ViewBag.msg_isvaluefalse2" + "n" + "@ViewBag.msg_isvaluefalse3");
+                return;
+            }
+            isValidInteger = regex.test(document.getElementById('txt_Hermes-Hermes-StratTransportDelayTime').value);
+            if (id == "Hermes" && !((parseInt(document.getElementById('txt_Hermes-Hermes-StratTransportDelayTime').value, 10) >= 0) && isValidInteger)) {
+                msgbox("Hermes " + "@ViewBag.table_strattransportdelaytime1" + ':' + "@ViewBag.msg_isvaluefalse1" + "0" + "@ViewBag.msg_isvaluefalse2" + "n" + "@ViewBag.msg_isvaluefalse3");
+                return;
+            }
+            isValidInteger = regex.test(document.getElementById('txt_Hermes-Hermes-Reserved_quantity').value);
+            var Reserved_quantity = document.getElementById('txt_Hermes-Hermes-Reserved_quantity').value;
+            var fifoRange = document.getElementById('txt_MACHINE-MACHINE-fifoRange').value;
+            if (id == "Hermes" && !((parseInt(Reserved_quantity, 10) >= 0) && (parseInt(Reserved_quantity, 10) < fifoRange) && isValidInteger)) {
+                fifoRange = document.getElementById('txt_MACHINE-MACHINE-fifoRange').value - 1;
+                msgbox("@ViewBag.table_upstream Command Reserved quantity" + ':' + "@ViewBag.msg_isvaluefalse1" + "0" + "@ViewBag.msg_isvaluefalse2" + fifoRange);
+                return;
+            }
+            if (id == "Hermes" && port_range(decodeHtmlEntities("@ViewBag.table_supervisory"), "txt_Hermes-Supervisory-Port")) {
+                return;
+            }
+            if (id == "Hermes" && validateIP(decodeHtmlEntities("@ViewBag.table_upstream @ViewBag.table_tcpip"), "txt_Hermes-Upstream-IP")) {
+                return;
+            }
+            if (id == "Hermes" && port_range(decodeHtmlEntities("@ViewBag.table_upstream"), "txt_Hermes-Upstream-Port")) {
+                return;
+            }
+            if (id == "Hermes" && validateIP(decodeHtmlEntities("@ViewBag.table_downstream @ViewBag.table_tcpip"), "txt_Hermes-Downstream-IP")) {
+                return;
+            }
+            if (id == "Hermes" && port_range(decodeHtmlEntities("@ViewBag.table_downstream"), "txt_Hermes-Downstream-Port")) {
+                return;
+            }
+
+            /**** WorkOrder檢查   ****/
+            if (id == "WorkOrder" && !(isASCII(document.getElementById('txt_Hermes-newRecipe-ProductTypeID').value))) {
+                msgbox("WorkOrder " + "@ViewBag.table_ProductTypeID" + ":" + "@ViewBag.msg_format_wrong");
+                return;
+            }
+            isValidInteger = /^\d+$/.test(document.getElementById('txt_Hermes-newRecipe-Length').value);
+            if (id == "WorkOrder" && !((parseInt(document.getElementById('txt_Hermes-newRecipe-Length').value, 10) >= 0) && isValidInteger)) {
+                msgbox(decodeHtmlEntities("@ViewBag.table_Length") + ':' + decodeHtmlEntities("@ViewBag.msg_isvaluebiggerequa0"));
+                return;
+            }
+
+            isValidInteger = /^\d+$/.test(document.getElementById('txt_Hermes-newRecipe-Width').value);
+            if (id == "WorkOrder" && !((parseInt(document.getElementById('txt_Hermes-newRecipe-Width').value, 10) >= 0) && isValidInteger)) {
+                msgbox(decodeHtmlEntities("@ViewBag.table_Width") + ':' + decodeHtmlEntities("@ViewBag.msg_isvaluebiggerequa0"));
+                return;
+            }
+
+            isValidInteger = /^\d+$/.test(document.getElementById('txt_Hermes-newRecipe-Thickness').value);
+            if (id == "WorkOrder" && !((parseInt(document.getElementById('txt_Hermes-newRecipe-Thickness').value, 10) >= 0) && isValidInteger)) {
+                msgbox(decodeHtmlEntities("@ViewBag.table_Thickness") + ':' + decodeHtmlEntities("@ViewBag.msg_isvaluebiggerequa0"));
+                return;
+            }
+
+            isValidInteger = /^\d+$/.test(document.getElementById('txt_Hermes-newRecipe-ConveyorSpeed').value);
+            if (id == "WorkOrder" && !((parseInt(document.getElementById('txt_Hermes-newRecipe-ConveyorSpeed').value, 10) >= 0) && isValidInteger)) {
+                msgbox(decodeHtmlEntities("@ViewBag.table_ConveyorSpeed") + ':' + decodeHtmlEntities("@ViewBag.msg_isvaluebiggerequa0"));
+                return;
+            }
+
+            isValidInteger = /^\d+$/.test(document.getElementById('txt_Hermes-newRecipe-TopClearanceHeight').value);
+            if (id == "WorkOrder" && !((parseInt(document.getElementById('txt_Hermes-newRecipe-TopClearanceHeight').value, 10) >= 0) && isValidInteger)) {
+                msgbox(decodeHtmlEntities("@ViewBag.table_TopClearanceHeight") + ':' + decodeHtmlEntities("@ViewBag.msg_isvaluebiggerequa0"));
+                return;
+            }
+
+            isValidInteger = /^\d+$/.test(document.getElementById('txt_Hermes-newRecipe-BottomClearanceHeight').value);
+            if (id == "WorkOrder" && !((parseInt(document.getElementById('txt_Hermes-newRecipe-BottomClearanceHeight').value, 10) >= 0) && isValidInteger)) {
+                msgbox(decodeHtmlEntities("@ViewBag.table_BottomClearanceHeight") + ':' + decodeHtmlEntities("@ViewBag.msg_isvaluebiggerequa0"));
+                return;
+            }
+
+            isValidInteger = /^\d+$/.test(document.getElementById('txt_Hermes-newRecipe-Weight').value);
+            if (id == "WorkOrder" && !((parseInt(document.getElementById('txt_Hermes-newRecipe-Weight').value, 10) >= 0) && isValidInteger)) {
+                msgbox(decodeHtmlEntities("@ViewBag.table_Weight") + ':' + decodeHtmlEntities("@ViewBag.msg_isvaluebiggerequa0"));
+                return;
+            }
+            if (id == "WorkOrder" && !(isASCII(document.getElementById('txt_Hermes-newRecipe-WorkOrderID').value))) {
+                msgbox("WorkOrder " + "@ViewBag.table_WorkOrderID:" + ":" + "@ViewBag.msg_format_wrong");
+                return;
+            }
+            if (id == "WorkOrder" && !(isASCII(document.getElementById('txt_Hermes-newRecipe-BatchID').value))) {
+                msgbox("WorkOrder " + "@ViewBag.table_BatchID:" + ":" + "@ViewBag.msg_format_wrong");
+                return;
+            }
+            if (id == "WorkOrder" && !(isASCII(document.getElementById('txt_Hermes-newRecipe-Topbarcodetitle').value))) {
+                msgbox("WorkOrder " + "TopBarCode:" + "@ViewBag.msg_format_wrong");
+                return;
+            }
+            if (id == "WorkOrder" && !(isASCII(document.getElementById('txt_Hermes-newRecipe-Bottombarcodetitle').value))) {
+                msgbox("WorkOrder " + "BottomBarCode:" + "@ViewBag.msg_format_wrong");
+                return;
+            }
+
+            /***   SubBoards   ***/
+            //檢查
+            if (id == "WorkOrder") {
+                var SUB_inputElements = document.querySelectorAll('#workorder_setting input[id^="SB_Bc_"]');
+                var isreturn = false;
+                // 迭代每個輸入框，提取其值並存儲到物件中
+                SUB_inputElements.forEach(function (input) {
+                    var name = input.name;
+                    var parts = name.split("-");
+                    var SB_Pos = parts[0];
+                    var SB_Bc = input.value;
+                    if (id == "WorkOrder" && !(isASCII(SB_Bc))) {
+                        msgbox("WorkOrder " + "SB_Pos:" + SB_Pos + "@ViewBag.msg_format_wrong");
+                        isreturn = true;
+                        return;
+                    }
+                });
+                if (isreturn) {
+                    return;
+                }
+            }
+            //建立List表單
+            if (id == "WorkOrder") {
+                var SUB_inputElements = document.querySelectorAll('#workorder_setting input[id^="SB_Bc_"]');
+
+                // 迭代每個輸入框，提取其值並存儲到物件中
+                SUB_inputElements.forEach(function (input) {
+                    var name = input.name;
+                    var parts = name.split("-");
+                    var inputData = {
+                        SB_Pos: parts[0],
+                        SB_Bc: input.value,
+                        SB_St: parts[1]
+                    };
+                    SUBdataList.push(inputData);
+                });
+            }
+
+            /**** OutPorts檢查   ****/
+            var BoardMode = document.getElementById('select_MACHINE-MACHINE-BoardMode').value;
+            var Reader1_close = document.getElementById('btn_N_OutPort-Reader1-Enable').classList.contains('btn-primary');
+            var Reader2_close = document.getElementById('btn_N_OutPort-Reader2-Enable').classList.contains('btn-primary');
+            if (id == "outport" && BoardMode == "2" && Reader1_close && Reader2_close) {
+                msgbox("Common @ViewBag.table_BoardMode: @ViewBag.btn_match，@ViewBag.msg_open_reader");
+                return;
+            }
+            isValidInteger = regex.test(document.getElementById('txt_OutPort-Machine-RecipeName').value);
+            if (id == "outport" && !((parseInt(document.getElementById('txt_OutPort-Machine-RecipeName').value, 10) >= 0) && (parseInt(document.getElementById('txt_OutPort-Machine-RecipeName').value, 10) <= 65535) && isValidInteger)) {
+                msgbox("OutPorts Machine @ViewBag.table_D_RN" + ':' + "@ViewBag.msg_isvaluefalse1" + "0" + "@ViewBag.msg_isvaluefalse2" + "65535");
+                return;
+            }
+            isValidInteger = regex.test(document.getElementById('txt_OutPort-Machine-Width').value);
+            if (id == "outport" && !((parseInt(document.getElementById('txt_OutPort-Machine-Width').value, 10) >= 0) && (parseInt(document.getElementById('txt_OutPort-Machine-Width').value, 10) <= 65535) && isValidInteger)) {
+                msgbox("OutPorts Machine @ViewBag.table_D_wid" + ':' + "@ViewBag.msg_isvaluefalse1" + "0" + "@ViewBag.msg_isvaluefalse2" + "65535");
+                return;
+            }
+            if (id == "outport" && (!(isASCII(document.getElementById('txt_OutPort-Reader1-start_message').value)) ||
+                document.getElementById('txt_OutPort-Reader1-start_message').value == "")) {
+                msgbox("Outport Reader1 @ViewBag.table_STmessage :" + "@ViewBag.msg_format_wrong_empty");
+                return;
+            }
+
+            if (id == "outport" && (!(isASCII(document.getElementById('txt_OutPort-Reader1-read_failure_message').value)) ||
+                document.getElementById('txt_OutPort-Reader1-read_failure_message').value == "")) {
+                msgbox("Outport Reader1 @ViewBag.table_ERRmessage :" + "@ViewBag.msg_format_wrong_empty");
+                return;
+            }
+            if (id == "outport" && (!(isASCII(document.getElementById('txt_OutPort-Reader2-start_message').value)) ||
+                document.getElementById('txt_OutPort-Reader2-start_message').value == "")) {
+                msgbox("Outport Reader2 @ViewBag.table_STmessage :" + "@ViewBag.msg_format_wrong_empty");
+                return;
+            }
+
+            if (id == "outport" && (!(isASCII(document.getElementById('txt_OutPort-Reader2-read_failure_message').value)) ||
+                document.getElementById('txt_OutPort-Reader2-read_failure_message').value == "")) {
+                msgbox("Outport Reader2 @ViewBag.table_ERRmessage :" + "@ViewBag.msg_format_wrong_empty");
+                return;
+            }
+
+            var reader1IP = document.getElementById('txt_OutPort-Reader1-IP').value;
+            var reader2IP = document.getElementById('txt_OutPort-Reader2-IP').value;
+            var machineIP = document.getElementById('txt_OutPort-Machine-IP').value;
+
+            if (id == "outport" && (reader1IP == reader2IP || reader1IP == machineIP || reader2IP == machineIP)) {
+                msgbox("OutPorts " + decodeHtmlEntities("IP") + ":" + decodeHtmlEntities("@ViewBag.msg_usesameip"));
+                return;
+            }
+
+            if (id == "outport" && validateIP(decodeHtmlEntities("OutPorts BarCode Reader 1 @ViewBag.table_tcpip:"), "txt_OutPort-Reader1-IP")) {
+                return;
+            }
+            if (id == "outport" && port_range(decodeHtmlEntities("OutPorts BarCode Reader 1 @ViewBag.table_tcpport:"), "txt_OutPort-Reader1-TCP_port")) {
+                return;
+            }
+            isValidInteger = /^\d+$/.test(document.getElementById('txt_OutPort-Reader1-WriteTimeout').value);
+            if (id == "outport" && !((parseInt(document.getElementById('txt_OutPort-Reader1-WriteTimeout').value, 10) > 0) && isValidInteger)) {
+                msgbox("OutPorts Reader1 " + decodeHtmlEntities("WriteTimeout") + ":" + decodeHtmlEntities("@ViewBag.msg_isvaluebiggerthan0"));
+                return;
+            }
+            if (id == "outport" && validateIP(decodeHtmlEntities("OutPorts BarCode Reader 2 @ViewBag.table_tcpip:"), "txt_OutPort-Reader2-IP")) {
+                return;
+            }
+            if (id == "outport" && port_range(decodeHtmlEntities("OutPorts BarCode Reader 2 @ViewBag.table_tcpport:"), "txt_OutPort-Reader2-TCP_port")) {
+                return;
+            }
+            if (document.getElementById('select_OutPort-Reader1-Name').value == document.getElementById('select_OutPort-Reader2-Name').value && document.getElementById('select_OutPort-Reader1-Name').value != '0') {
+                msgbox("OutPorts " + decodeHtmlEntities("Use") + ":" + decodeHtmlEntities("@ViewBag.msg_usesameselect"));
+                return;
+            }
+            if (document.getElementById('select_OutPort-Reader1-Port').value == document.getElementById('select_OutPort-Reader2-Port').value && document.getElementById('select_OutPort-Reader1-Port').value.includes('COM') ||
+                document.getElementById('select_OutPort-Reader1-Port').value == document.getElementById('select_OutPort-Machine-Port').value && document.getElementById('select_OutPort-Reader1-Port').value.includes('COM') ||
+                document.getElementById('select_OutPort-Reader2-Port').value == document.getElementById('select_OutPort-Machine-Port').value && document.getElementById('select_OutPort-Reader2-Port').value.includes('COM')) {
+                msgbox("OutPorts " + decodeHtmlEntities("Port") + ":" + decodeHtmlEntities("@ViewBag.msg_usesameselect"));
+                return;
+            }
+            isValidInteger = /^\d+$/.test(document.getElementById('txt_OutPort-Machine-DecimalPlaces').value);
+            if (id == "outport" && !((parseInt(document.getElementById('txt_OutPort-Machine-DecimalPlaces').value, 10) >= 0) && isValidInteger)) {
+                msgbox("OutPorts @ViewBag.table_machine " + decodeHtmlEntities("@ViewBag.table_decimalplaces") + ":" + decodeHtmlEntities("@ViewBag.msg_isvaluebiggerequal0"));
+                return;
+            }
+            if (id == "outport" && validateIP(decodeHtmlEntities("OutPorts @ViewBag.table_machine @ViewBag.table_tcpip:"), "txt_OutPort-Machine-IP")) {
+                return;
+            }
+            if (id == "outport" && port_range(decodeHtmlEntities("OutPorts @ViewBag.table_machine @ViewBag.table_tcpport:"), "txt_OutPort-Machine-TCP_port")) {
+                return;
+            }
+
+            // 迭代每個輸入框，提取其值並存儲到物件中
+            inputElements.forEach(function (input) {
+                var name = input.name;
+                var parts = name.split("-");
+                var inputData = {
+                    Group: parts[0],
+                    Type: parts[1],
+                    Name: parts[2],
+                    Value: input.value
+                };
+                if (id == "Hermes") {
+                    if (Hermes_originalData[name] != input.value) {
+                        dataList.push(inputData);
+                    }
+                } else {
+                    dataList.push(inputData);
+                }
+            });
+
+            // 迭代每個按鈕，提取其值並存儲到物件中
+            buttonElements.forEach(function (button) {
+                var name = button.name; // 獲取按鈕的 ID
+                var upload_value = button.classList.contains('btn-primary'); // 檢查是否包含 'btn-primary' 類
+
+                if (name != 'Hermes-newRecipe-WorkOrderData' && name != 'Hermes-newRecipe-QWINoData') {
+                    // 根據是否包含 'btn-primary' 類設定值
+                    if (document.getElementById("btn_Y_" + name).classList.contains("btn-primary")) {
+                        // "True" 按鈕被選中
+                        upload_value = 'true';
+                    } else {
+                        // "False" 按鈕被選中
+                        upload_value = 'false';
+                    }
+                } else if (name == 'Hermes-newRecipe-WorkOrderData') {
+                    // 根據是否包含 'btn-primary' 類設定值
+                    if (document.getElementById("btn_Y_Supervisory").classList.contains("btn-primary")) {
+                        // "True" 按鈕被選中
+                        upload_value = '0';//Supervisory
+                    } else if (document.getElementById("btn_N_ManualKeyin").classList.contains("btn-primary")) {
+                        // "False" 按鈕被選中
+                        upload_value = '1';//ManualKeyin
+                    }
+                } else if (name == 'Hermes-newRecipe-QWINoData') {
+                    // 根據是否包含 'btn-primary' 類設定值
+                    if (document.getElementById("btn_Y_Stay").classList.contains("btn-primary")) {
+                        // "True" 按鈕被選中
+                        upload_value = '0';//Stay
+                    } else if (document.getElementById("btn_N_CreateData").classList.contains("btn-primary")) {
+                        // "False" 按鈕被選中
+                        upload_value = '1';//CreateData
+                    }
+                }
+                var name = button.name;
+                var parts = name.split("-");
+                var buttonData = {
+                    Group: parts[0],
+                    Type: parts[1],
+                    Name: parts[2],
+                    Value: upload_value
+                };
+
+                dataList.push(buttonData);
+            });
+
+            // 迭代每個選項框，提取其值並存儲到物件中
+            selectElements.forEach(function (select) {
+                var name = select.name;
+                var parts = name.split("-");
+                var selectData = {
+                    Group: parts[0],
+                    Type: parts[1],
+                    Name: parts[2],
+                    Value: select.value
+                };
+                dataList.push(selectData);
+            });
+
+            // 創建一個新的 XMLHttpRequest 物件
+            //使用 AJAX 回傳給伺服器
+            var xhr = new XMLHttpRequest();
+            xhr.open("POST", "/Home/Edit", true); // 確保 URL 正確
+            xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8");
+            var data = "List=" + encodeURIComponent(JSON.stringify(dataList)) + "&UserID=" + encodeURIComponent(decrypt(getCookie('ID')));// 構建請求參數字符串
+            data = "List=" + encodeURIComponent(JSON.stringify(dataList)) + "&SUBList=" + encodeURIComponent(JSON.stringify(SUBdataList)) + "&UserID=" + encodeURIComponent(decrypt(getCookie('ID')));
+            // 定義當請求完成時的回調函數
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                        // 請求成功，您可以在此處處理回應
+                        console.log("設定成功");
+
+                        for (var i = 0; i < 5; i++) { originalData(i, true); }
+
+                        //在5秒後執行msgbox_close
+                        setTimeout(function () {
+                            msgbox(decodeHtmlEntities("@ViewBag.msg_savesuccess"));
+                        }, 5000);
+
+                    } else {
+                        console.error("請求失敗，狀態碼：" + xhr.status);
+                        msgbox(decodeHtmlEntities("@ViewBag.msg_savefailed") + error);
+                    }
+                }
+            };
+            // 使用 JSON 數據發送請求
+            xhr.send(data);
+        } else {
+            return;
+        }
+    }
+
+    //Enable更改true/false
+    function btn_true(ID) {
+        document.getElementById("btn_Y_" + ID).classList.remove("btn-primary", "btn-secondary");
+        document.getElementById("btn_N_" + ID).classList.remove("btn-primary", "btn-secondary");
+        document.getElementById("btn_Y_" + ID).classList.add("btn-primary");
+        document.getElementById("btn_N_" + ID).classList.add("btn-secondary");
+    }
+
+    //Disable更改true/false
+    function btn_false(ID) {
+        document.getElementById("btn_Y_" + ID).classList.remove("btn-primary", "btn-secondary");
+        document.getElementById("btn_N_" + ID).classList.remove("btn-primary", "btn-secondary");
+        document.getElementById("btn_Y_" + ID).classList.add("btn-secondary");
+        document.getElementById("btn_N_" + ID).classList.add("btn-primary");
+    }
+
+    //Digital IO設定視窗
+    if (getCookie('user_lv') === dfsdfsdfsf && getCookie('ID') === dfdfdg && getCookie('user_name') === 'Sunsda') {
+        document.getElementById('digital_tab').style.display = '';
+    } else {
+        document.getElementById('digital_tab').style.display = 'none';
+    }
+
+    //權限限制，唯獨屬性
+    if (getCookie('user_lv') !== dfsdfsdfsf) {
+        // 將排序區塊中的所有按鈕設置為唯讀
+        var Common_buttons = document.querySelectorAll('#Common_setting button');
+        var Hermes_buttons = document.querySelectorAll('#Hermes_setting button');
+        var WorkOrder_buttons = document.querySelectorAll('#workorder_setting button');
+        var OutPorts_buttons = document.querySelectorAll('#outport_setting button');
+
+        Common_buttons.forEach(function (button) {
+            button.disabled = true; // 注意這裡使用 disabled 屬性
+        });
+
+        Hermes_buttons.forEach(function (button) {
+            button.disabled = true;
+        });
+
+        WorkOrder_buttons.forEach(function (button) {
+            button.disabled = true;
+        });
+
+        OutPorts_buttons.forEach(function (button) {
+            button.disabled = true;
+        });
+
+        // 將排序區塊中的所有文本輸入框設置為唯讀
+        var Common_textboxes = document.querySelectorAll('#Common_setting input[type="text"]');
+        Common_textboxes.forEach(function (textbox) {
+            textbox.readOnly = true;
+        });
+        var Hermes_textboxes = document.querySelectorAll('#Hermes_setting input[type="text"]');
+        Hermes_textboxes.forEach(function (textbox) {
+            textbox.readOnly = true;
+        });
+        var WorkOrder_textboxes = document.querySelectorAll('#workorder_setting input[type="text"]');
+        WorkOrder_textboxes.forEach(function (textbox) {
+            textbox.readOnly = true;
+        });
+        var OutPorts_textboxes = document.querySelectorAll('#outport_setting input[type="text"]');
+        OutPorts_textboxes.forEach(function (textbox) {
+            textbox.readOnly = true;
+        });
+        var OutPorts_textboxes = document.querySelectorAll('#outport_setting input[type="number"]');
+        OutPorts_textboxes.forEach(function (textbox) {
+            textbox.readOnly = true;
+        });
+
+        var Common_selects = document.querySelectorAll('#Common_setting select');
+        var Hermes_selects = document.querySelectorAll('#Hermes_setting select');
+        var WorkOrder_selects = document.querySelectorAll('#workorder_setting select');
+        var OutPorts_selects = document.querySelectorAll('#outport_setting select');
+
+        Common_selects.forEach(function (select) {
+            select.disabled = true; // 注意這裡使用 disabled 屬性
+        });
+
+        Hermes_selects.forEach(function (select) {
+            select.disabled = true;
+        });
+
+        WorkOrder_selects.forEach(function (select) {
+            select.disabled = true;
+        });
+
+        OutPorts_selects.forEach(function (select) {
+            select.disabled = true;
+        });
+    }
+
+    //選擇 Supervisory
+    function btn_Supervisory() {
+        document.getElementById("btn_Y_Supervisory").classList.remove("btn-primary", "btn-secondary");
+        document.getElementById("btn_N_ManualKeyin").classList.remove("btn-primary", "btn-secondary");
+        document.getElementById("btn_Y_Supervisory").classList.add("btn-primary");
+        document.getElementById("btn_N_ManualKeyin").classList.add("btn-secondary");
+    }
+
+    //選擇 ManualKeyin
+    function btn_ManualKeyin() {
+        document.getElementById("btn_Y_Supervisory").classList.remove("btn-primary", "btn-secondary");
+        document.getElementById("btn_N_ManualKeyin").classList.remove("btn-primary", "btn-secondary");
+        document.getElementById("btn_Y_Supervisory").classList.add("btn-secondary");
+        document.getElementById("btn_N_ManualKeyin").classList.add("btn-primary");
+    }
+
+    //QWI或QBI問不到資料時動作清單更改
+    function btn_Stay() {
+        document.getElementById("btn_Y_Stay").classList.remove("btn-primary", "btn-secondary");
+        document.getElementById("btn_N_CreateData").classList.remove("btn-primary", "btn-secondary");
+        document.getElementById("btn_Y_Stay").classList.add("btn-primary");
+        document.getElementById("btn_N_CreateData").classList.add("btn-secondary");
+    }
+
+    //QWI或QBI問不到資料時動作清單更改
+    function btn_CreateData() {
+        document.getElementById("btn_Y_Stay").classList.remove("btn-primary", "btn-secondary");
+        document.getElementById("btn_N_CreateData").classList.remove("btn-primary", "btn-secondary");
+        document.getElementById("btn_Y_Stay").classList.add("btn-secondary");
+        document.getElementById("btn_N_CreateData").classList.add("btn-primary");
+    }
+
+    /*******   System   *******/
+    //原始資料儲存或比較
+    function originalData(i, isSave) {
+        var inputElements = document.querySelectorAll('#' + OriginalData_type[i] + ' input');
+        var buttonElements = document.querySelectorAll('#' + OriginalData_type[i] + ' button');
+        var selectElements = document.querySelectorAll('#' + OriginalData_type[i] + ' select');
+
+        // 根據索引選擇對應的原始資料物件
+        var originalDataObject, currentData = {};;
+        if (i === 0) originalDataObject = Common_originalData;
+        else if (i === 1) originalDataObject = Hermes_originalData;
+        else if (i === 2) originalDataObject = WorkOrder_originalData;
+        else if (i === 3) originalDataObject = OutPorts_originalData;
+        else if (i === 4) originalDataObject = Digital_originalData;
+
+        // 迭代每個輸入框，提取其值並存儲到物件中
+        inputElements.forEach(function (input) {
+            var inputData = {
+                [input.name]: input.value
+            };
+            Object.assign(isSave ? originalDataObject : currentData, inputData);
+        });
+
+        // 迭代每個輸入框，提取其值並存儲到物件中
+        buttonElements.forEach(function (button) {
+            if (button.id.includes("btn_Y_")) {
+                var buttonData = {
+                    [button.name]: button.classList.contains('btn-primary')
+                };
+                Object.assign(isSave ? originalDataObject : currentData, buttonData);
+            }
+
+        });
+
+        // 迭代每個輸入框，提取其值並存儲到物件中
+        selectElements.forEach(function (select) {
+            var selectData = {
+                [select.name]: select.value
+            };
+            Object.assign(isSave ? originalDataObject : currentData, selectData);
+        });
+
+        if (isSave) {
+            if (i === 0) Common_originalData = originalDataObject;
+            else if (i === 1) Hermes_originalData = originalDataObject;
+            else if (i === 2) WorkOrder_originalData = originalDataObject;
+            else if (i === 3) OutPorts_originalData = originalDataObject;
+            else if (i === 4) Digital_originalData = originalDataObject;
+        } else {
+            // 比較是否有變更
+            var hasChanges = JSON.stringify(originalDataObject) !== JSON.stringify(currentData);
+            if (hasChanges) {
+                // 資料有變更，執行相應的處理邏輯
+                console.log("資料已變更");
+            } else {
+                // 資料未變更
+                console.log("資料未變更");
+            }
+            return hasChanges;
+        }
+    }
+
+    //IO選擇項目鎖定與釋放
+    document.addEventListener('DOMContentLoaded', function () {
+        // 獲取 Digital 元素
+        var digitalElement = document.getElementById('Digital');
+
+        // 監聽所有選擇框的變化事件
+        var selects = digitalElement.querySelectorAll('select');
+
+        // 定義一個函數用於處理選擇框變化
+        function handleSelectChange(currentSelect) {
+
+            // 檢查是否有指定的 class
+            if (currentSelect.classList.contains('ePtntl')) {
+                return; // 若有，直接結束函式，不執行後續的程式碼
+            }
+
+            // 獲取當前選擇框的ID和值
+            var currentId = currentSelect.id;
+            var selectedValue = currentSelect.value;
+
+            // 如果選擇的值不是 99，則將相同ID的其他選擇框中相同值的選項隱藏並禁用
+            if (selectedValue !== '99') {
+                selects.forEach(function (otherSelect) {
+                    if (otherSelect.id.startsWith(currentId.slice(0, -1)) && otherSelect.id !== currentId) {
+                        var options = otherSelect.getElementsByTagName('option');
+                        for (var i = 0; i < options.length; i++) {
+                            if (options[i].value === selectedValue) {
+                                options[i].style.display = 'none';
+                                options[i].disabled = true;
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // 初始化時執行一次
+        selects.forEach(function (select) {
+            handleSelectChange(select);
+        });
+
+        // 監聽所有選擇框的變化事件
+        selects.forEach(function (select) {
+            select.addEventListener('change', function () {
+                handleSelectChange(this);
+            });
+        });
+    });
+
+    //IO選擇項目鎖定與釋放
+    document.addEventListener("DOMContentLoaded", function () {
+        // 在DOM準備就緒後執行的代碼
+
+        // 獲取 Digital 元素
+        var digitalElement = document.getElementById('Digital');
+
+        // 監聽所有選擇框的變化事件
+        var selects = digitalElement.querySelectorAll('select');
+
+        selects.forEach(function (select) {
+            select.addEventListener('change', function () {
+                // 獲取當前選擇框的ID和值
+                var currentId = this.id;
+                var selectedValue = this.value;
+                // 儲存已經被選擇的值
+                var selectedValues = [];
+
+                // 收集相同ID的其他選擇框中已經被選擇的值
+                selects.forEach(function (otherSelect) {
+                    if (otherSelect.id.startsWith(currentId.slice(0, -1)) && otherSelect.id !== currentId) {
+                        selectedValues.push(otherSelect.value);
+                    }
+                });
+
+                // 將相同ID的其他選擇框中已經被選擇的項目隱藏並禁用
+                selects.forEach(function (otherSelect) {
+                    if (otherSelect.id.startsWith(currentId.slice(0, -1)) && otherSelect.id !== currentId) {
+                        var options = otherSelect.getElementsByTagName('option');
+                        for (var i = 0; i < options.length; i++) {
+                            if (selectedValues.includes(options[i].value) && options[i].value !== selectedValue) {
+                            } else {
+                                options[i].style.display = '';
+                                options[i].disabled = false;
+                            }
+                        }
+                    }
+                });
+
+                // 如果選擇的值不是 0，則將相同ID的其他選擇框中相同值的選項隱藏並禁用
+                if (selectedValue !== '99') {
+                    selects.forEach(function (otherSelect) {
+                        if (otherSelect.id.startsWith(currentId.slice(0, -1)) && otherSelect.id !== currentId) {
+                            var options = otherSelect.getElementsByTagName('option');
+                            for (var i = 0; i < options.length; i++) {
+                                if (options[i].value === selectedValue) {
+                                    options[i].style.display = 'none';
+                                    options[i].disabled = true;
+                                }
+                            }
+                        }
+                    });
+                }
+            });
+        });
+    });
+
+    //IO如果選擇的值不是 RJ45，則將相同ID的其他選擇框中相同值的選項隱藏並禁用
+    function OutPort_None(i, value) {
+        if (value == 'RJ45') {
+            document.getElementById('choose_COM_OutPort-' + OutPort_type[i] + '-Type').style.display = 'none';
+            document.getElementById('choose_COM_OutPort-' + OutPort_type[i] + '-BaudRate').style.display = 'none';
+            document.getElementById('choose_COM_OutPort-' + OutPort_type[i] + '-Parity').style.display = 'none';
+            document.getElementById('choose_COM_OutPort-' + OutPort_type[i] + '-DataBits').style.display = 'none';
+            document.getElementById('choose_COM_OutPort-' + OutPort_type[i] + '-StopBit').style.display = 'none';
+            document.getElementById('choose_RJ_OutPort-' + OutPort_type[i] + '-IP').style.display = '';
+            document.getElementById('choose_RJ_OutPort-' + OutPort_type[i] + '-TCP_port').style.display = '';
+        } else {
+            document.getElementById('choose_COM_OutPort-' + OutPort_type[i] + '-Type').style.display = '';
+            document.getElementById('choose_COM_OutPort-' + OutPort_type[i] + '-BaudRate').style.display = '';
+            document.getElementById('choose_COM_OutPort-' + OutPort_type[i] + '-Parity').style.display = '';
+            document.getElementById('choose_COM_OutPort-' + OutPort_type[i] + '-DataBits').style.display = '';
+            document.getElementById('choose_COM_OutPort-' + OutPort_type[i] + '-StopBit').style.display = '';
+            document.getElementById('choose_RJ_OutPort-' + OutPort_type[i] + '-IP').style.display = 'none';
+            document.getElementById('choose_RJ_OutPort-' + OutPort_type[i] + '-TCP_port').style.display = 'none';
+        }
+    }
+
+    //Reader1使用的Port決定設定項次顯示
+    document.addEventListener("DOMContentLoaded", function () {
+        var Element = document.getElementById('select_OutPort-Reader1-Port');
+
+        Element.addEventListener('change', function () {
+            // 獲取當前選擇框的值
+            var selectedValue = this.value;
+
+            // 如果選擇的值不是 RJ45，則將相同ID的其他選擇框中相同值的選項隱藏並禁用
+            OutPort_None(0, selectedValue);
+        });
+    });
+
+    //Reader2使用的Port決定設定項次顯示
+    document.addEventListener("DOMContentLoaded", function () {
+        var Element = document.getElementById('select_OutPort-Reader2-Port');
+
+        Element.addEventListener('change', function () {
+            // 獲取當前選擇框的值
+            var selectedValue = this.value;
+
+            // 如果選擇的值不是 RJ45，則將相同ID的其他選擇框中相同值的選項隱藏並禁用
+            OutPort_None(1, selectedValue);
+        });
+    });
+
+    //設備使用的Port決定設定項次顯示
+    document.addEventListener("DOMContentLoaded", function () {
+        var Element = document.getElementById('select_OutPort-Machine-Port');
+
+        Element.addEventListener('change', function () {
+            // 獲取當前選擇框的值
+            var selectedValue = this.value;
+
+            // 如果選擇的值不是 RJ45，則將相同ID的其他選擇框中相同值的選項隱藏並禁用
+            OutPort_None(2, selectedValue);
+        });
+    });
+
+    //變更SB_Bc的name
+    document.addEventListener("DOMContentLoaded", function () {
+        // 在DOM準備就緒後執行的代碼
+
+        // 獲取 Digital 元素
+        var SubElement = document.getElementById('workorder_subboards');
+
+        // 監聽所有選擇框的變化事件，使用事件委託
+        SubElement.addEventListener('change', function (event) {
+            // 檢查觸發事件的元素是否是 select
+            if (event.target.tagName === 'SELECT') {
+                // 獲取當前選擇框的ID和值
+                var SubName = event.target.name;
+                var selectedValue = event.target.value;
+
+                document.getElementById('SB_Bc_' + SubName).name = SubName + '-' + selectedValue;
+            }
+        });
+    });
+
+    //新增子板欄位
+    function NewSubBoard() {
+        // 獲取所有的 input 元素
+        var inputElements = document.querySelectorAll('#workorder_subboards input');
+
+        // 定義最大的 SB_Pos 值
+        var maxSB_Pos = -1;
+
+        // 遍歷所有的 input 元素
+        inputElements.forEach(function (input) {
+            // 獲取 input 元素的 id 屬性
+            var id = input.id;
+            // 檢查是否是以 "SB_Pos_" 開頭的 id
+            if (id.startsWith('SB_Pos_')) {
+                // 將 id 中的 "SB_Pos_" 部分替換為空字串，得到數字部分
+                var pos = parseInt(id.replace('SB_Pos_', ''));
+                // 更新最大的 SB_Pos 值
+                maxSB_Pos = Math.max(maxSB_Pos, pos);
+            }
+        });
+
+        maxSB_Pos = maxSB_Pos + 1;
+
+        // 最大的 SB_Pos 值存儲在 maxSB_Pos 中
+        console.log("最大的 SB_Pos 值:", maxSB_Pos);
+
+        // 獲取 workorder_subboards 的 tbody 元素
+        var tbody = document.querySelector('#workorder_subboards tbody');
+
+        // 創建新的 <tr> 元素
+        var newRow = document.createElement('tr');
+
+        // 在新的 <tr> 元素中插入 <th> 元素（留空）
+        newRow.innerHTML += '<th></th>';
+
+        // 在新的 <tr> 元素中插入 <th> 元素（留空）
+        newRow.innerHTML += '<th></th>';
+
+        // 在新的 <tr> 元素中插入 <th> 元素和 <input> 元素
+        newRow.innerHTML += '<th><input style="width:3vw;" type="text" id="SB_Pos_' + maxSB_Pos + '"class="form-control" required="" value="' + maxSB_Pos + '" disabled="" wfd-id="id39"></th>';
+
+        // 在新的 <tr> 元素中插入 <th> 元素和 <input> 元素
+        newRow.innerHTML += '<th><input style="width:29vw;" type="text" id="SB_Bc_' + maxSB_Pos + '" name="' + maxSB_Pos + '-0" class="form-control" required="" wfd-id="id40"></th>';
+
+        // 在新的 <tr> 元素中插入 <th> 元素和 <select> 元素
+        newRow.innerHTML += '<th><select style="width:16vw;" id="SB_St_' + maxSB_Pos + '" name="' + maxSB_Pos + '" class="form-select td_reason"><option value="0" selected="selected">Subboard of unknown quality</option><option value="1">Good Subboard</option><option value="2">Failed Subboard</option><option value="3">Missing Subboard</option><option value="4">Skip Subboard</option></select></th>';
+
+        // 將新的 <tr> 元素插入到 tbody 的最後
+        tbody.appendChild(newRow);
+    }
+
+    //刪除單一子板資料
+    async function DeleSubBoard() {
+        // 獲取所有的 input 元素
+        var inputElements = document.querySelectorAll('#workorder_subboards input');
+
+        // 定義最大的 SB_Pos 值
+        var maxSB_Pos = -1;
+
+        // 遍歷所有的 input 元素
+        inputElements.forEach(function (input) {
+            // 獲取 input 元素的 id 屬性
+            var id = input.id;
+            // 檢查是否是以 "SB_Pos_" 開頭的 id
+            if (id.startsWith('SB_Pos_')) {
+                // 將 id 中的 "SB_Pos_" 部分替換為空字串，得到數字部分
+                var pos = parseInt(id.replace('SB_Pos_', ''));
+                // 更新最大的 SB_Pos 值
+                maxSB_Pos = Math.max(maxSB_Pos, pos);
+            }
+        });
+
+        // 最大的 SB_Pos 值存儲在 maxSB_Pos 中
+        console.log("最大的 SB_Pos 值:", maxSB_Pos);
+
+        if (maxSB_Pos == -1) {
+            return;
+        }
+
+        var isDele = await checkmsgbox("@ViewBag.msg_issubdele1" + maxSB_Pos + "@ViewBag.msg_issubdele2");
+        if (isDele) {
+            // 透過最大的 SB_Pos 值構建要刪除的子板的 ID
+            var targetId = 'SB_Pos_' + maxSB_Pos;
+
+            // 獲取要刪除的行
+            var row = document.getElementById(targetId).closest('tr');
+
+            // 刪除該行
+            row.remove();
+        } else {
+            return;
+        }
+    }
+
+    //刪除所有子板資料
+    async function DeleAll() {
+        // 獲取所有的 input 元素
+        var inputElements = document.querySelectorAll('#workorder_subboards input');
+
+        // 定義最大的 SB_Pos 值
+        var maxSB_Pos = -1;
+
+        // 遍歷所有的 input 元素
+        inputElements.forEach(function (input) {
+            // 獲取 input 元素的 id 屬性
+            var id = input.id;
+            // 檢查是否是以 "SB_Pos_" 開頭的 id
+            if (id.startsWith('SB_Pos_')) {
+                // 將 id 中的 "SB_Pos_" 部分替換為空字串，得到數字部分
+                var pos = parseInt(id.replace('SB_Pos_', ''));
+                // 更新最大的 SB_Pos 值
+                maxSB_Pos = Math.max(maxSB_Pos, pos);
+            }
+        });
+
+        // 最大的 SB_Pos 值存儲在 maxSB_Pos 中
+        console.log("最大的 SB_Pos 值:", maxSB_Pos);
+
+        if (maxSB_Pos == -1) {
+            return;
+        }
+
+        var isDele = await checkmsgbox("@ViewBag.msg_sub_alldelete");
+        if (isDele) {
+            // 獲取 workorder_subboards 表格
+            var table = document.getElementById('workorder_subboards');
+
+            // 獲取所有行
+            var rows = table.getElementsByTagName('tr');
+
+            // 從最後一行開始遍歷，以防止在遍歷期間刪除行時的索引錯誤
+            for (var i = rows.length - 1; i > 0; i--) {
+                // 刪除行
+                rows[i].remove();
+            }
+        } else {
+            return;
+        }
+    }
+
+    //版本低於1.4動作
+    function VersionLow140() {
+        document.getElementById("btn_Y_Hermes-Upstream-Command").classList.remove("btn-primary", "btn-secondary");
+        document.getElementById("btn_N_Hermes-Upstream-Command").classList.remove("btn-primary", "btn-secondary");
+        document.getElementById("btn_Y_Hermes-Upstream-Command").classList.add("btn-secondary");
+        document.getElementById("btn_N_Hermes-Upstream-Command").classList.add("btn-primary");
+        document.getElementById("btn_Y_Hermes-Downstream-Command").classList.remove("btn-primary", "btn-secondary");
+        document.getElementById("btn_N_Hermes-Downstream-Command").classList.remove("btn-primary", "btn-secondary");
+        document.getElementById("btn_Y_Hermes-Downstream-Command").classList.add("btn-secondary");
+        document.getElementById("btn_N_Hermes-Downstream-Command").classList.add("btn-primary");
+        document.getElementById("btn_Y_Hermes-Supervisory-ReplyWorkOrderInfo").classList.remove("btn-primary", "btn-secondary");
+        document.getElementById("btn_N_Hermes-Supervisory-ReplyWorkOrderInfo").classList.remove("btn-primary", "btn-secondary");
+        document.getElementById("btn_Y_Hermes-Supervisory-ReplyWorkOrderInfo").classList.add("btn-secondary");
+        document.getElementById("btn_N_Hermes-Supervisory-ReplyWorkOrderInfo").classList.add("btn-primary");
+        document.getElementById("btn_Y_Hermes-Hermes-Command_effect").classList.remove("btn-primary", "btn-secondary");
+        document.getElementById("btn_N_Hermes-Hermes-Command_effect").classList.remove("btn-primary", "btn-secondary");
+        document.getElementById("btn_Y_Hermes-Hermes-Command_effect").classList.add("btn-secondary");
+        document.getElementById("btn_N_Hermes-Hermes-Command_effect").classList.add("btn-primary");
+        document.getElementById("btn_Y_Hermes-Hermes-Give_Command_Order").classList.remove("btn-primary", "btn-secondary");
+        document.getElementById("btn_N_Hermes-Hermes-Give_Command_Order").classList.remove("btn-primary", "btn-secondary");
+        document.getElementById("btn_Y_Hermes-Hermes-Give_Command_Order").classList.add("btn-secondary");
+        document.getElementById("btn_N_Hermes-Hermes-Give_Command_Order").classList.add("btn-primary");
+        document.getElementById("Reserved_quantity-Version-1.4").style.display = 'none';
+        document.getElementById("Give_Command_Order-Version-1.4").style.display = 'none';
+        document.getElementById("Command_effect-Version-1.4").style.display = 'none';
+        document.getElementById("Command_Path-Version-1.4").style.display = 'none';
+        document.getElementById("Upstream-Command-Version-1.4").style.display = 'none';
+        document.getElementById("Downstream-Command-Version-1.4").style.display = 'none';
+        document.getElementById("ReplyWorkOrderInfo-Version-1.4").style.display = 'none';
+        document.getElementById("WorkOrder-Route-Version-1.4").style.display = 'none';
+        document.getElementById("WorkOrder-Action-Version-1.4").style.display = 'none';
+        document.getElementById("workorder_subboards").style.display = 'none';
+        document.getElementById("SB_Add").style.display = 'none';
+        document.getElementById("SB_Delete").style.display = 'none';
+        document.getElementById("SB_AllDele").style.display = 'none';
+    }
+
+    //版本關閉開啟支援項目
+    document.addEventListener("DOMContentLoaded", function () {
+        // 獲取 Version 元素
+        var VersionElement = document.getElementById('select_Hermes-Hermes-Version');
+
+        // 監聽選擇框的變化事件，使用事件委託
+        VersionElement.addEventListener('change', function (event) {
+            var Version = event.target.value;
+            //依據版本關閉/開啟選項
+            if (Version < 140) {
+                VersionLow140();
+            } else {
+                document.getElementById("Reserved_quantity-Version-1.4").style.display = '';
+                document.getElementById("Give_Command_Order-Version-1.4").style.display = '';
+                document.getElementById("Command_effect-Version-1.4").style.display = '';
+                document.getElementById("Command_Path-Version-1.4").style.display = '';
+                document.getElementById("Upstream-Command-Version-1.4").style.display = '';
+                document.getElementById("Downstream-Command-Version-1.4").style.display = '';
+                document.getElementById("ReplyWorkOrderInfo-Version-1.4").style.display = '';
+                document.getElementById("WorkOrder-Route-Version-1.4").style.display = '';
+                document.getElementById("WorkOrder-Action-Version-1.4").style.display = '';
+                document.getElementById("workorder_subboards").style.display = '';
+                document.getElementById("SB_Add").style.display = '';
+                document.getElementById("SB_Delete").style.display = '';
+                document.getElementById("SB_AllDele").style.display = '';
+            }
+            if (Version < 130) {
+                document.getElementById("WorkOrder-BatchID-Version-1.2").style.display = 'none';
+            } else {
+                document.getElementById("WorkOrder-BatchID-Version-1.2").style.display = 'none';
+            }
+        });
+    });
+
+    // 定義要鎖定的視窗大小
+    var lockedWidth = 1912;
+    var lockedHeight = 966;
+
+    // 函數用於設置視窗大小
+    function setWindowSize() {
+        // 獲取瀏覽器視口的寬度和高度
+        var width = window.innerWidth;
+        var height = window.innerHeight;
+
+        // 將獲得的尺寸顯示在網頁上
+        console.log('瀏覽器視口寬度: ' + width + 'px, 高度: ' + height + 'px');
+        if (width < lockedWidth || height < lockedHeight) {
+            document.getElementById("System_setting").style.position = '';
+        } else {
+            document.getElementById("System_setting").style.position = 'fixed';
+        }
+    }
+
+    // 初次加載頁面時，設置視窗大小
+    setWindowSize();
+
+    // 監聽 resize 事件，並在視窗大小發生變化時再次設置大小
+    window.addEventListener('resize', setWindowSize);
+</script>

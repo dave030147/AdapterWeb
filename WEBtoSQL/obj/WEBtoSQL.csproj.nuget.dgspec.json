@@ -1,0 +1,106 @@
+{
+  "format": 1,
+  "restore": {
+    "C:\\Users\\SExRD-CPG06-NB\\Desktop\\Adapter\\Adapter_簡化Code\\WEBtoSQL\\WEBtoSQL.csproj": {}
+  },
+  "projects": {
+    "C:\\Users\\SExRD-CPG06-NB\\Desktop\\Adapter\\Adapter_簡化Code\\WEBtoSQL\\WEBtoSQL.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "C:\\Users\\SExRD-CPG06-NB\\Desktop\\Adapter\\Adapter_簡化Code\\WEBtoSQL\\WEBtoSQL.csproj",
+        "projectName": "WEBtoSQL",
+        "projectPath": "C:\\Users\\SExRD-CPG06-NB\\Desktop\\Adapter\\Adapter_簡化Code\\WEBtoSQL\\WEBtoSQL.csproj",
+        "packagesPath": "C:\\Users\\SExRD-CPG06-NB\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\SExRD-CPG06-NB\\Desktop\\Adapter\\Adapter_簡化Code\\WEBtoSQL\\obj\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\SExRD-CPG06-NB\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "net7.0"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "C:\\Program Files\\dotnet\\library-packs": {},
+          "C:\\Program Files\\dotnet\\sdk\\7.0.302\\Sdks\\Microsoft.NET.Sdk.Web\\library-packs": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net7.0": {
+            "targetAlias": "net7.0",
+            "projectReferences": {}
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        }
+      },
+      "frameworks": {
+        "net7.0": {
+          "targetAlias": "net7.0",
+          "dependencies": {
+            "51Degrees.mobi-core": {
+              "target": "Package",
+              "version": "[3.2.21.1, )"
+            },
+            "Microsoft.AspNetCore.SignalR": {
+              "target": "Package",
+              "version": "[1.1.0, )"
+            },
+            "Microsoft.Data.SqlClient": {
+              "target": "Package",
+              "version": "[5.1.2, )"
+            },
+            "Microsoft.VisualStudio.Web.CodeGeneration.Design": {
+              "target": "Package",
+              "version": "[7.0.11, )"
+            },
+            "NLog": {
+              "target": "Package",
+              "version": "[5.2.8, )"
+            },
+            "System.Data.SqlClient": {
+              "target": "Package",
+              "version": "[4.8.5, )"
+            },
+            "System.IO.Ports": {
+              "target": "Package",
+              "version": "[8.0.0, )"
+            },
+            "System.ServiceProcess.ServiceController": {
+              "target": "Package",
+              "version": "[7.0.1, )"
+            }
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.AspNetCore.App": {
+              "privateAssets": "none"
+            },
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\7.0.302\\RuntimeIdentifierGraph.json"
+        }
+      }
+    }
+  }
+}

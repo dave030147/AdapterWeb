@@ -1,0 +1,1884 @@
+﻿@using WEBtoSQL.Models;
+@{
+    string Recipe = "Recipe";
+    string RecipeType = ViewBag.RecipeType;
+    List<MVCSETTING> settings = ViewBag.Setting;
+    List<MVCDEFAILT_SUB> workorder_sub = ViewBag.Workorder_sub;
+    List<MVCDEFAILT_SUB_New> workorder_sub_new = ViewBag.Workorder_sub_new;
+
+    int Version = 0;
+    @foreach (MVCSETTING sett in settings.Where(s => s.Name == "Version"))
+    {
+        if(sett.Value != null || sett.Value != "")
+        {
+            Version = Convert.ToInt32(sett.Value);
+        }
+    }
+}
+<style>
+    /*狀態顯示*/
+    .title {
+        text-align: center;
+        font-size: 23px;
+        background-color: #b1adad;
+        border-radius: 10px 10px 0 0;
+        width: 345px;
+    }
+
+    .title_message {
+        text-align: center;
+        font-size: 23px;
+        background-color: #b1adad;
+        border-radius: 10px 0 0 10px;
+        width: 345px;
+        padding-top: 0.25%;
+    }
+
+    .title_system {
+        text-align: center;
+        font-size: 23px;
+        background-color: #b1adad;
+        border-radius: 10px 10px 0 0;
+    }
+
+    .status_block {
+        width: 175%;
+        display: flex;
+        margin-top: 1.5%;
+    }
+
+    .status_name {
+        width: 30%;
+        color: white;
+        font-size: 21px;
+    }
+
+    .status {
+        color: black;
+        font-size: 21px;
+        border-radius: 10px;
+        text-align: center;
+        width: 25%;
+    }
+
+    .long_status_name_zh {
+        width: 13.2%;
+        color: white;
+        font-size: 21px;
+        padding: 0.5%;
+    }
+
+    .long_status_name_en {
+        width: 91px;
+        color: white;
+        font-size: 21px;
+        margin-left: 1%;
+        padding: 0.5%;
+    }
+
+    .long_status {
+        color: black;
+        font-size: 21px;
+        border-radius: 0 0 10px 10px;
+        text-align: center;
+        width: 346px;
+    }
+    /*信文*/
+    .message_block {
+        font-size: 21px;
+    }
+
+    .message_block_en {
+        font-size: 21px;
+        display: flex;
+        width: 43%;
+        margin-left: 3%;
+    }
+
+    .message_block_zh {
+        font-size: 21px;
+        display: flex;
+        width: 34%;
+        margin-left: 3%;
+    }
+
+    .message_from {
+        text-align: center;
+        border-radius: 0 10px 10px 0;
+        margin-left: 1%;
+    }
+
+    .message {
+        font-size: 21px;
+        text-align: center;
+        border-radius: 0 10px 10px 0;
+        width: 30%;
+        margin-left: 1%;
+    }
+
+    /* 使用 CSS 設定可捲動的容器樣式 */
+    .scrollable-container {
+        max-height: 675px; /* 設定容器的最大高度 */
+        overflow-y: scroll; /* 使用垂直捲軸 */
+    }
+
+    .scrollable-container-bottom {
+        max-height: 43vh; /* 設定容器的最大高度 */
+        overflow-y: scroll; /* 使用垂直捲軸 */
+    }
+
+    .dark-back {
+        background-color: darkgray;
+    }
+
+    .shadow {
+        background-color: rgb(45, 50, 45);
+    }
+
+    .shadow-bottom {
+        background-color: rgb(46, 49, 46);
+    }
+
+    /* 表格行的灰白相間效果 */
+    .table tbody tr:nth-child(odd) {
+        background-color: #f2f2f2; /* 偶數行背景色 */
+    }
+
+    .table tbody tr:nth-child(even) {
+        background-color: #ffffff; /* 奇數行背景色 */
+    }
+
+    .table thead {
+        background-color: gray; /* 偶數行背景色 */
+    }
+
+    .storange,
+    td:not(.exclude),
+    th:not(.exclude) {
+        border: 1px solid black;
+    }
+
+    .QBIbox {
+        display: none;
+        position: fixed;
+        top: 20%;
+        left: 50%;
+        width: 500px;
+        border-radius: 10px;
+        transform: translate(-50%, -50%);
+        background-color: #fff;
+        border: 1px solid #ccc;
+        padding: 20px;
+        box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.2);
+        z-index: 9995;
+    }
+
+    .QBIbox_btns {
+        text-align: right;
+    }
+
+    .Img_Status {
+        width: 31px;
+        height: 31px;
+        margin-right: 10%;
+        margin-left: 6%;
+    }
+
+    #pagination {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    #datepicker {
+        width: 190px;
+        margin: 10px auto;
+    }
+
+    .object_transparent {
+        background-color: transparent;
+        border: none;
+        outline: none;
+        cursor: pointer;
+        vertical-align: middle;
+    }
+
+        .object_transparent:hover {
+            color: gold;
+            box-shadow: 0 0 10px gold;
+            /* 在這裡設置陰影效果 */
+            border-radius: 30px;
+        }
+</style>
+<div id="around" style="
+    height: 847px;
+    width: 1785px;
+    padding-left: 120px;
+    position: fixed;
+    z-index: -1;
+    display:flex;
+">
+    <div class="shadow-bottom p-3" style="border-radius: 10px; width: 505px;">
+
+        @{
+            var languageClass = (ViewBag.Language_now == "en-US") ? "en" : "zh";
+        }
+
+        <div style="margin-right:6%;">
+            <div style="display:flex;">
+                <img class="Img_Status" id="Lockinput" src="/Unlock.png" />
+                <div class="title">Lock Input</div>
+            </div>
+            <div class="status_block">
+                <div class="long_status_name_@languageClass" id="Lockinput_Status_name">@ViewBag.lab_status</div>
+                <input class="long_status" id="Lockinput_Status" readonly>
+            </div>
+            <div style="display:flex; margin-top:2%;">
+                <img class="Img_Status" id="Supervisory" src="/NoUse.png" />
+                <div class="title">@ViewBag.titl_supervisory</div>
+            </div>
+            <div class="status_block">
+                <div class="long_status_name_@languageClass" id="Supervisory_Status_name">@ViewBag.lab_status</div>
+                <input class="long_status" id="Supervisory_Status" readonly>
+            </div>
+            <div style="display:flex; margin-top:2%;">
+                <img class="Img_Status" id="Upstream" src="/NoUse.png" />
+                <div class="title">@ViewBag.titl_upstream</div>
+            </div>
+            <div class="status_block">
+                <div class="long_status_name_@languageClass" id="Upstream_Status_name">@ViewBag.lab_status</div>
+                <input class="long_status" id="Upstream_Status" readonly>
+            </div>
+            <div style="display:flex; margin-top:2%;">
+                <img class="Img_Status" id="Downstream" src="/NoUse.png" />
+                <div class="title">@ViewBag.titl_downstream</div>
+            </div>
+            <div class="status_block">
+                <div class="long_status_name_@languageClass" id="Downstream_Status_name">@ViewBag.lab_status</div>
+                <input class="long_status" id="Downstream_Status" readonly>
+            </div>
+        </div>
+        <div style="display:flex; margin-top:3%;">
+            <div class="shadow p-1" style="border-radius: 10px; width: 100%;">
+                <div class="title_system">@ViewBag.titl_systemmessage</div>
+                <div class="SystemMessage scrollable-container-bottom message_block " id="SystemMessage" style="color:white; height:43vh; white-space: pre-line;">@ViewBag.SystemMessage</div>
+            </div>
+        </div>
+    </div>
+    <div style="width:30px"></div>
+    <div>
+        <div class="shadow-bottom p-3" style="border-radius: 10px; width:1130px; height: 150px;">
+            <div>
+                <div style="display:flex;">
+                    <div class="title_message" style="width: 25%;">@ViewBag.titl_receivemessage</div>
+                    <input readonly class="message" id="ReceiveMessage" value="Empty">
+                    <div class="message_block_@languageClass">
+                        <div class="title_message" style="width: 45%;">@ViewBag.lab_messagefrom</div>
+                        <input readonly class="message_from" id="reciveFrom" value="Empty">
+                    </div>
+
+                </div>
+            </div>
+            <div style="height:1.5vw"></div>
+            <div>
+                <div style="display:flex;">
+                    <div class="title_message" style="width: 25%;">@ViewBag.titl_sendmessage</div>
+                    <input readonly class="message" id="SendMessage" value="Empty">
+                    <div class="message_block_@languageClass">
+                        <div class="title_message" style="width: 45%;">@ViewBag.lab_messagefrom</div>
+                        <input readonly class="message_from" id="sendFrom" value="Empty">
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <div class="shadow-bottom p-3 scrollable-container" style="border-radius: 10px; width:1130px; height: 675px; margin-top:2%;">
+            <div class="accordion accordion-flush" id="accordionFlushExample">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- QWI問不到時的輸入視窗-->
+<div class="modal" tabindex="-1" role="dialog" id="WorkOrderModal">
+    <div class="modal-dialog" style="max-width: 929px;" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modal_title_WorkOrder">WorkOrder</h5>
+            </div>
+            <div class="modal-body">
+                <!-- 表單 -->
+                <form id="WorkOrderForm">
+                    <table class="table" id="workordermodal">
+                        <tbody>
+                            @foreach (MVCSETTING sett in settings.Where(s => s.Type == RecipeType).OrderByDescending(s => s.Name == "WorkOrderID").
+                            ThenByDescending(s => s.Name == "BatchID").ThenByDescending(s => s.Name == "FailedBoard").
+                            ThenByDescending(s => s.Name == "ProductTypeID").ThenByDescending(s => s.Name == "FlippedBoard").
+                            ThenByDescending(s => s.Name == "TopBarCodeSuffix").ThenByDescending(s => s.Name == "BottomBarCodeSuffix").
+                            ThenByDescending(s => s.Name == "Length").ThenByDescending(s => s.Name == "Width").
+                            ThenByDescending(s => s.Name == "Thickness").ThenByDescending(s => s.Name == "ConveyorSpeed").
+                            ThenByDescending(s => s.Name == "TopClearanceHeight").ThenByDescending(s => s.Name == "BottomClearanceHeight").
+                            ThenByDescending(s => s.Name == "Weight").ThenByDescending(s => s.Name == "Route").
+                            ThenByDescending(s => s.Name == "Action"))
+                            {
+                                @if (sett.Name != "WorkOrderData" && sett.Name != "Topbarcodetype" && sett.Name != "Bottombarcodetype" &&
+                               sett.Name != "QWINoData" && sett.Name != "Topbarcodein" && sett.Name != "Bottombarcodein" && sett.Name != "Topbarcodetitle" &&
+                               sett.Name != "Bottombarcodetitle" && sett.Name != "Route" && sett.Name != "Action" && sett.Name != "BatchID" && sett.Name != "isServiceReStar")
+                               {
+                                    <tr>
+                                        @if (sett.Name == "FailedBoard")
+                                        {
+                                            <th>@ViewBag.table_FailedBoard</th>
+                                        }
+                                        else if (sett.Name == "ProductTypeID")
+                                        {
+                                            <th>@ViewBag.table_ProductTypeID</th>
+                                        }
+                                        else if (sett.Name == "FlippedBoard")
+                                        {
+                                            <th>@ViewBag.table_FlippedBoard</th>
+                                        }
+                                        else if (sett.Name == "Length")
+                                        {
+                                            <th>@ViewBag.table_Length</th>
+                                        }
+                                        else if (sett.Name == "Width")
+                                        {
+                                            <th>@ViewBag.table_Width</th>
+                                        }
+                                        else if (sett.Name == "Thickness")
+                                        {
+                                            <th>@ViewBag.table_Thickness</th>
+                                        }
+                                        else if (sett.Name == "ConveyorSpeed")
+                                        {
+                                            <th>@ViewBag.table_ConveyorSpeed</th>
+                                        }
+                                        else if (sett.Name == "TopClearanceHeight")
+                                        {
+                                            <th>@ViewBag.table_TopClearanceHeight</th>
+                                        }
+                                        else if (sett.Name == "BottomClearanceHeight")
+                                        {
+                                            <th>@ViewBag.table_BottomClearanceHeight</th>
+                                        }
+                                        else if (sett.Name == "Weight")
+                                        {
+                                            <th>@ViewBag.table_Weight</th>
+                                        }
+                                        else if (sett.Name == "WorkOrderID")
+                                        {
+                                            <th>@ViewBag.table_WorkOrderID</th>
+                                        }
+                                        else if (sett.Name == "TopBarCodeSuffix")
+                                        {
+                                            <th>TopBarCode</th>
+                                        }
+                                        else if (sett.Name == "BottomBarCodeSuffix")
+                                        {
+                                            <th>BottomBarCode</th>
+                                        }
+                                        @if (sett.Name == "FailedBoard")
+                                        {
+                                            <th>
+                                                <select class="form-select td_reason" id="select_@sett.Group-@Recipe-@sett.Name" name="@sett.Group-@Recipe-@sett.Name">
+                                                    <option value="0" selected="@(sett.Value == "0")">@ViewBag.btn_FailedBoard_unknown</option>
+                                                    <option value="1" selected="@(sett.Value == "1")">@ViewBag.btn_FailedBoard_good</option>
+                                                    <option value="2" selected="@(sett.Value == "2")">@ViewBag.btn_FailedBoard_failed</option>
+                                                </select>
+                                            </th>
+                                        }
+                                        else if (sett.Name == "FlippedBoard")
+                                        {
+                                            <th>
+                                                <select class="form-select td_reason" id="select_@sett.Group-@Recipe-@sett.Name" name="@sett.Group-@Recipe-@sett.Name">
+                                                    <option value="0" selected="@(sett.Value == "0")">@ViewBag.btn_FlippedBoard_unknown</option>
+                                                    <option value="1" selected="@(sett.Value == "1")">@ViewBag.btn_FlippedBoard_top</option>
+                                                    <option value="2" selected="@(sett.Value == "2")">@ViewBag.btn_FlippedBoard_bottom</option>
+                                                </select>
+                                            </th>
+                                        }
+                                        else if (sett.Name == "TopBarCodeSuffix")
+                                        {
+                                            <th><input type="text" id="txt_@sett.Group-@Recipe-Topbarcode" name="@sett.Group-@Recipe-Topbarcode" class="form-control" required value="@sett.Value"></th>
+                                        }
+                                        else if (sett.Name == "BottomBarCodeSuffix")
+                                        {
+                                            <th><input type="text" id="txt_@sett.Group-@Recipe-Bottombarcode" name="@sett.Group-@Recipe-Bottombarcode" class="form-control" required value="@sett.Value"></th>
+                                        }
+                                        else
+                                        {
+                                            <th><input type="text" id="txt_@sett.Group-@Recipe-@sett.Name" name="@sett.Group-@Recipe-@sett.Name" class="form-control" required value="@sett.Value"></th>
+                                        }
+                                    </tr>
+                                }
+                                else if (sett.Name == "Route" && Version >= 140)
+                                {
+                                    <tr id="WorkOrder-Route-Version-1.4">
+                                        <th>@ViewBag.table_Route</th>
+                                        <th><input type="text" id="txt_@sett.Group-@Recipe-@sett.Name" name="@sett.Group-@Recipe-@sett.Name" class="form-control" required value="@sett.Value"></th>
+                                    </tr>
+                                }
+                                else if (sett.Name == "Action" && Version >= 140)
+                                {
+                                    <tr id="WorkOrder-Action-Version-1.4">
+                                        <th>@ViewBag.table_Action</th>
+                                        <th><input type="text" id="txt_@sett.Group-@Recipe-@sett.Name" name="@sett.Group-@Recipe-@sett.Name" class="form-control" required value="@sett.Value" disabled></th>
+                                    </tr>
+                                }
+                                else if (sett.Name == "BatchID" && Version >= 130)
+                                {
+                                    <tr id="WorkOrder-BatchID-Version-1.2">
+                                        <th>@ViewBag.table_BatchID</th>
+                                        <th><input type="text" id="txt_@sett.Group-@Recipe-@sett.Name" name="@sett.Group-@Recipe-@sett.Name" class="form-control" required value="@sett.Value"></th>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                    @if (Version >= 140)
+                    {
+                        <button class="btn btn-info" type="button" id="SB_Add" onclick="NewSubBoard()">@ViewBag.btn_SB_Add</button>
+                        <button class="btn btn-danger" type="button" id="SB_Delete" onclick="DeleSubBoard()">@ViewBag.btn_SB_Delete</button>
+                        <button class="btn btn-danger" type="button" id="SB_AllDele" onclick="DeleAll()">@ViewBag.btn_SB_AllDele</button>
+                        <table class="table" id="workorder_subboards">
+                            <thead>
+                                <tr>
+                                    <th>@ViewBag.table_SB_Pos</th>
+                                    <th>@ViewBag.table_SB_Bc</th>
+                                    <th>@ViewBag.table_SB_St</th>
+                                </tr>
+                            </thead>
+                            @if (RecipeType == "newRecipe")
+                            {
+                                <tbody>
+                                    @foreach (MVCDEFAILT_SUB_New sub in workorder_sub_new)
+                                    {
+                                        <tr>
+                                            <th>
+                                                <input style="width:3vw;" type="text" id="SB_Pos_@sub.SB_Pos" class="form-control" required value="@sub.SB_Pos" disabled>
+                                            </th>
+                                            <th>
+                                                <input style="width:25vw;" type="text" id="SB_Bc_@sub.SB_Pos" name="@sub.SB_Pos-@sub.SB_St" class="form-control" required value="@sub.SB_Bc">
+                                            </th>
+                                            <th>
+                                                <select style="width:16vw;" id="SB_St_@sub.SB_Pos" name="@sub.SB_Pos" class="form-select td_reason">
+                                                    <option value="0" selected="@(sub.SB_St == "0")">Subboard of unknown quality</option>
+                                                    <option value="1" selected="@(sub.SB_St == "1")">Good Subboard</option>
+                                                    <option value="2" selected="@(sub.SB_St == "2")">Failed Subboard</option>
+                                                    <option value="3" selected="@(sub.SB_St == "3")">Missing Subboard</option>
+                                                    <option value="4" selected="@(sub.SB_St == "4")">Skip Subboard</option>
+                                                </select>
+                                            </th>
+                                        </tr>
+                                    }
+                                </tbody>
+                            }
+                            else
+                            {
+                                <tbody>
+                                    @foreach (MVCDEFAILT_SUB sub in workorder_sub)
+                                    {
+                                        <tr>
+                                            <th>
+                                                <input style="width:3vw;" type="text" id="SB_Pos_@sub.SB_Pos" class="form-control" required value="@sub.SB_Pos" disabled>
+                                            </th>
+                                            <th>
+                                                <input style="width:25vw;" type="text" id="SB_Bc_@sub.SB_Pos" name="@sub.SB_Pos-@sub.SB_St" class="form-control" required value="@sub.SB_Bc">
+                                            </th>
+                                            <th>
+                                                <select style="width:16vw;" id="SB_St_@sub.SB_Pos" name="@sub.SB_Pos" class="form-select td_reason">
+                                                    <option value="0" selected="@(sub.SB_St == "0")">Subboard of unknown quality</option>
+                                                    <option value="1" selected="@(sub.SB_St == "1")">Good Subboard</option>
+                                                    <option value="2" selected="@(sub.SB_St == "2")">Failed Subboard</option>
+                                                    <option value="3" selected="@(sub.SB_St == "3")">Missing Subboard</option>
+                                                    <option value="4" selected="@(sub.SB_St == "4")">Skip Subboard</option>
+                                                </select>
+                                            </th>
+                                        </tr>
+                                    }
+                                </tbody>
+                            }
+                        </table>
+                    }
+
+                    <button id="WorkOrderSubmit" type="button" class="btn btn-primary" onclick="save('WorkOrder')">@ViewBag.modal_btn_submit</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!--   訊息提示框   -->
+<form class="QBIbox" id="QBIbox">
+    <div style="margin-bottom:15px;">
+        <span>請輸入TopBarCode或BottomBarCode</span>
+        <br />
+        <br />
+        TopBarCode:
+        <input type="text" id="QBI_topbarcode" name="" class="form-control" required>
+        <br />
+        BottomBarCode:
+        <input type="text" id="QBI_bottombarcode" name="" class="form-control" required>
+    </div>
+    <div class="QBIbox_btns">
+        <button class="btn btn-primary" type="button" font-size:15px; width: 73px; color:white;" id="QBIbox_btn_submit" onclick="QBIbox_submit()">@ViewBag.modal_btn_submit</button>
+    </div>
+</form>
+
+<!-- 歷史資料視窗-->
+<div class="modal" tabindex="-1" role="dialog" id="HistoryModal">
+    <div class="modal-dialog" style="max-width: 1600px;" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modal_title_History">@ViewBag.Header_history</h5>
+                <div class="object_Group">
+                    <button class="object_transparent" id="prevDayBtn">@ViewBag.btn_before</button>
+                    <input class="object_transparent" type="text" id="datepicker" placeholder="@ViewBag.btn_date">
+                    <button class="object_transparent" id="nextDayBtn">@ViewBag.btn_after</button>
+                    <button class="object_transparent" id="currentDayBtn">@ViewBag.btn_today</button>
+                </div>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <!-- 資料表單 -->
+                <form style="display:flex;" id="HistoryForm">
+                    <div class="accordion accordion-flush" style="width:49.5%">
+                        <p>BoardArrived</p>
+                        <div id="BoardArrivedHistory"></div>
+                    </div>
+                    <div class="accordion accordion-flush" style="width:49.5%; margin-left:1%;">
+                        <p>BoardDeparted</p>
+                        <div id="BoardDepartedHistory"></div>
+                    </div>
+                </form>
+                <br />
+                <div id="pagination">
+                    <button onclick="previousPage()">@ViewBag.btn_prepage</button>
+                    <select id="currentPage"></select>
+                    <button onclick="nextPage()">@ViewBag.btn_nextpage</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@*<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/3.1.11/signalr.min.js"></script> 電腦無連網所以要載下來引用 <script src="/js/signalr/dist/browser/signalr.js"></script>*@
+@section scripts{
+    @*<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.css">*@
+    @*<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>*@
+    @*<script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>*@
+    <link rel="stylesheet" href="/js/jquery-ui.min.css">
+    <script src="/js/jquery.min.js"></script>
+    <script src="/js/jquery-ui.min.js"></script>
+    <script src="/js/signalr/dist/browser/signalr.js"></script>
+    <script>
+        /****************************   內部變數   ****************************/
+        var isSetting = false;
+        var lastalarmmessage = "";
+        var lastsystemmessage = "";
+        var StorageLength = 0;
+        var usedSubItems = {};
+        var currentPage = 1; // 歷史資料目前頁數
+        var maxPage = 0;
+        /****************************   共用指令   ****************************/
+        //取得cookie
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+        }
+
+        //刪除cookie
+        function deleteCookie(name) {
+            document.cookie = name + "=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+        }
+
+        // 定义刷新页面的函数
+        function myrefresh() {
+            location.reload();
+        }
+
+        //將ViewBag的亂碼轉換為文字
+        function decodeHtmlEntities(input) {
+            var doc = new DOMParser().parseFromString(input, "text/html");
+            return doc.documentElement.textContent;
+        }
+
+        //識別文字是否為true/false
+        function bool_identify(value) {
+            if (value == "TRUE") {
+                return true;
+            }
+            if (value == "True") {
+                return true;
+            }
+            if (value == "true") {
+                return true;
+            }
+            if (value == "FALSE") {
+                return false;
+            }
+            if (value == "False") {
+                return false;
+            }
+            if (value == "false") {
+                return false;
+            }
+        }
+
+        /****************************   內部指令   ****************************/
+        if (getCookie('Page') != undefined) {
+            deleteCookie('Page');
+            deleteCookie('Page_Tab');
+        }
+
+        // 檢查是否有表單被開啟的變數
+        var isFormOpen = false;
+
+        // 檢查是否有表單被開啟的函數
+        function checkFormOpen() {
+            if (document.getElementById("WorkOrderModal").style.display == 'block' ||
+                document.getElementById("QBIbox").style.display == 'block' ||
+                document.getElementById("UseModal").style.display == 'block' ||
+                document.getElementById("loginModal").style.display == 'block' ||
+                document.getElementById("accountManagementModal").style.display == 'block' ||
+                document.getElementById("editAccountModal").style.display == 'block' ||
+                document.getElementById("msgbox").style.display == 'block' ||
+                document.getElementById("ComTest").style.display == 'block' ||
+                document.getElementById("HistoryModal").style.display == 'block') {
+                return true;
+            } else {
+                return false;
+            }
+        }
+
+        // 每隔一段時間檢查一次表單狀態
+        setInterval(function () {
+            var isFormOpen = checkFormOpen();
+            if (!isFormOpen) {
+                // 每隔10秒重新載入網頁
+                setInterval(function () {
+                    location.reload();
+                }, 600000); // 1分鐘
+            }
+        }, 1000); // 檢查間隔時間，以毫秒為單位
+
+        var connection = new signalR.HubConnectionBuilder().withUrl("/chatHub").build();//SingleR連線
+        //與Server建立連線
+        connection.start()
+            .then(function () {
+                console.log("SignalR Hub 連線成功");
+            })
+            .catch(function (err) {
+                console.error('連線錯誤: ' + err.toString());
+
+                // 在連線失敗時的處理邏輯
+                if (err.statusCode === 401) {
+                    console.log("未經授權的訪問。可能需要進行身份驗證。");
+                } else if (err.statusCode === 403) {
+                    console.log("拒絕訪問。可能是由於權限不足。");
+                } else {
+                    console.log("未知錯誤。");
+                }
+
+                // 重新嘗試連線或其他處理邏輯
+                // 例如：每隔一段時間後重新嘗試
+                setTimeout(function () {
+                    connection.start()
+                        .then(function () {
+                            console.log("SignalR Hub 連線成功（重試）");
+                        })
+                        .catch(function (retryErr) {
+                            console.error('連線重試錯誤: ' + retryErr.toString());
+                            // 可以繼續處理連線錯誤，根據實際需求添加邏輯
+                        });
+                }, 5000); // 5秒後重新嘗試
+            });
+
+        connection.onclose(function (error) {
+            console.log('Connection closed with error: ' + error);
+        });
+
+        document.getElementById("btn-history").style.display = "";
+
+        // 更新資料事件
+        connection.on("ReceiveMessage1", function (KeyinIsAsked, QBIisAsked, MVCStorage, Lockinput) {
+            if (bool_identify(KeyinIsAsked)) {
+                document.getElementById("WorkOrderModal").style.display = 'block';
+            } else {
+                document.getElementById("WorkOrderModal").style.display = 'none';
+            }
+
+            if (bool_identify(QBIisAsked)) {
+                document.getElementById('QBIbox').style.display = 'block';
+                document.getElementById('QBI_overlay').style.display = 'block';
+            } else {
+                document.getElementById('QBIbox').style.display = 'none';
+                document.getElementById('QBI_overlay').style.display = 'none';
+            }
+
+            // Lockinput的狀態燈
+            var databaseElement = document.getElementById('Lockinput');
+            // Lockinput的狀態資訊
+            var LockinputStatus = document.getElementById('Lockinput_Status');
+
+            if (Lockinput == "0") {
+                LockinputStatus.value = "Command undefined";
+                databaseElement.src = '../Unlock.png';
+            } else if (Lockinput == "1") {
+                LockinputStatus.value = "Lock input conveyor";
+                databaseElement.src = '../Lock.png';
+            } else if (Lockinput == "2") {
+                LockinputStatus.value = "Unlock input conveyor";
+                databaseElement.src = '../Unlock.png';
+            } else if (Lockinput == "3") {
+                LockinputStatus.value = "Request pause";
+                databaseElement.src = '../Unlock.png';
+            } else if (Lockinput == "4") {
+                LockinputStatus.value = "Confirm pause";
+                databaseElement.src = '../Unlock.png';
+            } else if (Lockinput == "5") {
+                LockinputStatus.value = "Resume operation";
+                databaseElement.src = '../Unlock.png';
+            } else if (Lockinput >= "6" && Lockinput <= "999") {
+                LockinputStatus.value = "reserved for future use";
+                databaseElement.src = '../Unlock.png';
+            } else if (Lockinput >= "1000") {
+                LockinputStatus.value = "customer defined commands";
+                databaseElement.src = '../Unlock.png';
+            }
+
+            var StorageBox = document.getElementById("accordionFlushExample");
+
+            if (MVCStorage.length == 0 || StorageLength != MVCStorage.length) {
+                StorageLength = MVCStorage.length;
+                StorageBox.innerHTML = "";
+
+                var html = ""; // 定義一個空的 HTML 字符串
+
+                MVCStorage.forEach(function (item) {
+                    if (item.type == 'Main') {
+                        html += `
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header" id="flush-heading-${item.boardID}" style="display:flex;">
+                                        <button class = "dele_storage" style="background-color:#545454; color:white;" onclick="dele_storage('${item.boardID}')">
+                                            🗑️
+                                        </button>
+                                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#flush-collapse-${item.boardID}" aria-expanded="false" aria-controls="flush-collapse-${item.boardID}" style="background-color:#545454; color:white;">
+                                            ${item.boardID}
+                                        </button>
+                                    </h2>
+                                    <div id="flush-collapse-${item.boardID}" class="accordion-collapse collapse" aria-labelledby="flush-heading-${item.boardID}" data-bs-parent="#accordionFlushExample">
+                                        <div class="accordion-body">
+                                            <table class="table storange">
+                                                <tbody>
+                                                    <tr>
+                                                        <th>Board ID</th>
+                                                        <td>${item.boardID}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <th>Created By</th>
+                                                        <td>${item.createdBy}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <th>Product Type ID</th>
+                                                        <td>${item.productTypeID}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <th>Top Barcode</th>
+                                                        <td>${item.topBarcode}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <th>Bottom Barcode</th>
+                                                        <td>${item.bottomBarcode}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <th>Work Order ID</th>
+                                                        <td>${item.workOrderID}</td>
+                                                    </tr>
+                                               </tbody>
+                                            </table>
+                                            <table class="table">
+                                                <tbody id="tb_${item.boardID}">
+                                                    <tr>
+                                                        <th>Length</th>
+                                                        <td>${item.length}</td>
+                                                        <th>Flipped</th>
+                                                        <td>${item.flipped}</td>
+                                                        <th>Failed</th>
+                                                        <td>${item.failed}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <th>Width</th>
+                                                        <td>${item.width}</td>
+                                                        <th>Thickness</th>
+                                                        <td>${item.thickness}</td>
+                                                        <th>Conveyor Speed</th>
+                                                        <td>${item.conveyorSpeed}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <th>Top Clearance Height</th>
+                                                        <td>${item.topClearanceHeight}</td>
+                                                        <th>Bottom Clearance Height</th>
+                                                        <td>${item.bottomClearanceHeight}</td>
+                                                        <th>Weight</th>
+                                                        <td>${item.weight}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <th>Batch ID</th>
+                                                        <td>${item.batchID}</td>
+                                                        <th>Route</th>
+                                                        <td>${item.route}</td>
+                                                        <th>Action</th>
+                                                        <td>${item.action}</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                                `;
+                    }
+                });
+                // 將完整的 HTML 字符串賦值給 StorageBox 的 innerHTML 屬性
+                StorageBox.innerHTML = html;
+                var TB_ADD = document.getElementById("tb_${ item.boardID }");
+                //console.log(TB_ADD);
+                if (TB_ADD != null) {
+                    TB_ADD.appendChild(add_tb);
+                }
+            } else if (MVCStorage.length >= 0) {
+                var add_tb = ""; // 定義一個空的 HTML 字符串
+
+
+                MVCStorage.forEach(function (item) {
+                    // 檢查該項目是否有已使用的子項目列表，如果沒有，則創建一個空列表
+                    if (!usedSubItems[item.boardID]) {
+                        usedSubItems[item.boardID] = [];
+                    }
+
+                    // 檢查 item.sB_Pos 是否已被使用過
+                    if (usedSubItems[item.boardID].indexOf(item.sB_Pos) === -1 && item.type != 'Main') {
+                        add_tb = `
+                                <tr>
+                                    <th>SB_Pos</th>
+                                    <td>${item.sB_Pos}</td>
+                                    <th>SB_Bc</th>
+                                    <td>${item.sB_Bc}</td>
+                                    <th>SB_St</th>
+                                    <td>${item.sB_St}</td>
+                                </tr>
+                            `;
+
+                        // 找到對應的 tbody 元素
+                        var TB_ADD = document.getElementById("tb_" + item.boardID);
+                        if (TB_ADD != null) {
+                            // 創建一個新的 div 元素作為容器
+                            var tempDiv = document.createElement('div');
+                            tempDiv.innerHTML = '<table>' + add_tb + '</table>'; // 在 div 內插入新的表格行
+
+                            // 獲取新表格的 tbody 元素
+                            var newTbody = tempDiv.firstChild.querySelector('tbody');
+
+                            // 將新的 tbody 元素的所有子節點（也就是新的表格行）插入到原始的 tbody 中
+                            while (newTbody.childNodes.length > 0) {
+                                TB_ADD.appendChild(newTbody.childNodes[0]);
+                            }
+                        }
+
+                        // 將 item.sB_Pos 添加到已使用的子項目列表中
+                        usedSubItems[item.boardID].push(item.sB_Pos);
+                    }
+                });
+            }
+
+
+        });
+        connection.on("ReceiveMessage2", function (Upstream_Color, Downstream_Color, Supervisory_Color, Supervisory_Status_Color,
+            Upstream_Status_Color, Downstream_Status_Color) {
+
+            // Hermes的狀態燈
+            var databaseElement = document.getElementById('Upstream');
+            var plcColor = Upstream_Color;
+            if (plcColor == "Y") {
+                databaseElement.src = '../connect.png';
+            }
+            else if (plcColor == "S") {
+                databaseElement.src = '../NoUse.png';
+            }
+            else {
+                databaseElement.src = '../disconnect.png';
+            }
+
+            var databaseElement = document.getElementById('Downstream');
+            var plcColor = Downstream_Color;
+            if (plcColor == "Y") {
+                databaseElement.src = '../connect.png';
+            }
+            else if (plcColor == "S") {
+                databaseElement.src = '../NoUse.png';
+            }
+            else {
+                databaseElement.src = '../disconnect.png';
+            }
+
+            var databaseElement = document.getElementById('Supervisory');
+            var plcColor = Supervisory_Color;
+            if (plcColor == "Y") {
+                databaseElement.src = '../connect.png';
+            }
+            else if (plcColor == "S") {
+                databaseElement.src = '../NoUse.png';
+            }
+            else {
+                databaseElement.src = '../disconnect.png';
+            }
+
+            // Hermes的狀態資訊
+            var Upstream_Status = document.getElementById('Upstream_Status');
+            if (Upstream_Status) {
+                Upstream_Status.value = Upstream_Status_Color;
+                if (Supervisory_Status == "TransportStopped") {
+                    var isFormOpen = checkFormOpen();
+                    if (!isFormOpen) {
+                        location.reload();
+                    }
+                }
+            }
+
+            var Downstream_Status = document.getElementById('Downstream_Status');
+            if (Downstream_Status) {
+                Downstream_Status.value = Downstream_Status_Color;
+            }
+
+            var Supervisory_Status = document.getElementById('Supervisory_Status');
+            if (Supervisory_Status) {
+                Supervisory_Status.value = Supervisory_Status_Color;
+            }
+        });
+        connection.on("ReceiveMessage3", function (SendMessageFrom, SendMessage, ReceiveMessageFrom, ReceiveMessage, License_Hermes) {
+            var sendMessage = document.getElementById('SendMessage');
+            var sendfrom = document.getElementById('sendFrom');
+            if (sendMessage) {
+                sendfrom.value = SendMessageFrom;
+                // 使用DOMParser解析XML
+                var parser = new DOMParser();
+                var xmlDoc = parser.parseFromString(SendMessage, "text/xml");
+
+                // 提取所有<Hermes>元素
+                var hermesElements = xmlDoc.getElementsByTagName("Hermes");
+
+                // 遍历每个<Hermes>元素
+                for (var i = 0; i < hermesElements.length; i++) {
+                    // 获取当前<Hermes>元素的第一个子元素
+                    var firstChild = hermesElements[i].firstElementChild;
+
+                    // 打印第一个子元素的名称
+                    sendMessage.value = firstChild.tagName;
+                }
+            }
+
+            var receivemessage = document.getElementById('ReceiveMessage');
+            var reciveFrom = document.getElementById('reciveFrom');
+            if (receivemessage) {
+                reciveFrom.value = ReceiveMessageFrom;
+                // 使用DOMParser解析XML
+                var parser = new DOMParser();
+                var xmlDoc = parser.parseFromString(ReceiveMessage, "text/xml");
+
+                // 提取所有<Hermes>元素
+                var hermesElements = xmlDoc.getElementsByTagName("Hermes");
+
+                // 遍历每个<Hermes>元素
+                for (var i = 0; i < hermesElements.length; i++) {
+                    // 获取当前<Hermes>元素的第一个子元素
+                    var firstChild = hermesElements[i].firstElementChild;
+
+                    // 打印第一个子元素的名称
+                    receivemessage.value = firstChild.tagName;
+                }
+            }
+            if (bool_identify(License_Hermes)) {
+                document.getElementById('UseModal').style.display = 'none';
+                document.getElementById('License_overlay').style.display = 'none';
+            } else {
+                document.getElementById('UseModal').style.display = 'block';
+                document.getElementById('License_overlay').style.display = 'block';
+            }
+        });
+
+        //將系統參數的資料存到資料庫
+        async function save(id) {
+            // 獲取所有的輸入框元素
+            var inputElements = document.querySelectorAll('#' + id + ' input:not([id^="SB_"])');
+            var selectElements = document.querySelectorAll('#' + id + ' select:not([id^="SB_"])');
+            var SUB_inputElements = document.querySelectorAll('#workorder_subboards input[id^="SB_Bc_"]');
+            var topbarcode = document.getElementById("txt_Hermes-Recipe-Topbarcode").value;
+            var topbarcodeisOnlySpaces = topbarcode.trim().length === 0;
+            var bottombarcode = document.getElementById("txt_Hermes-Recipe-Bottombarcode").value;
+            var bottombarcodeisOnlySpaces = topbarcode.trim().length === 0;
+
+            // 創建一個 Promise 陣列
+            var promises = [];
+            var dataList = [];
+            var SUBdataList = [];
+            // 限制小數點位數到第二位
+            var regex = /^\d+(\.\d{0,2})?$/;
+            var KeyinIsAskedData = {
+                Name: 'KeyinIsAsked',
+                Value: false
+            };
+            dataList.push(KeyinIsAskedData);
+            var KeyinIsSendData = {
+                Name: 'KeyinIsSend',
+                Value: true
+            };
+            dataList.push(KeyinIsSendData);
+
+            /**** WorkOrder檢查   ****/
+            if (id == "WorkOrder" && !(isASCII(document.getElementById('txt_Hermes-Recipe-ProductTypeID').value))) {
+                msgbox("WorkOrder " + "@ViewBag.table_ProductTypeID" + ":" + "@ViewBag.msg_format_wrong");
+                return;
+            }
+            isValidInteger = /^\d+$/.test(document.getElementById('txt_Hermes-Recipe-Length').value);
+            if (id == "WorkOrder" && !((parseInt(document.getElementById('txt_Hermes-Recipe-Length').value, 10) >= 0) && isValidInteger)) {
+                msgbox(decodeHtmlEntities("@ViewBag.table_Length") + ':' + decodeHtmlEntities("@ViewBag.msg_isvaluebiggerequa0"));
+                return;
+            }
+
+            isValidInteger = /^\d+$/.test(document.getElementById('txt_Hermes-Recipe-Width').value);
+            if (id == "WorkOrder" && !((parseInt(document.getElementById('txt_Hermes-Recipe-Width').value, 10) >= 0) && isValidInteger)) {
+                msgbox(decodeHtmlEntities("@ViewBag.table_Width") + ':' + decodeHtmlEntities("@ViewBag.msg_isvaluebiggerequa0"));
+                return;
+            }
+
+            isValidInteger = /^\d+$/.test(document.getElementById('txt_Hermes-Recipe-Thickness').value);
+            if (id == "WorkOrder" && !((parseInt(document.getElementById('txt_Hermes-Recipe-Thickness').value, 10) >= 0) && isValidInteger)) {
+                msgbox(decodeHtmlEntities("@ViewBag.table_Thickness") + ':' + decodeHtmlEntities("@ViewBag.msg_isvaluebiggerequa0"));
+                return;
+            }
+
+            isValidInteger = /^\d+$/.test(document.getElementById('txt_Hermes-Recipe-ConveyorSpeed').value);
+            if (id == "WorkOrder" && !((parseInt(document.getElementById('txt_Hermes-Recipe-ConveyorSpeed').value, 10) >= 0) && isValidInteger)) {
+                msgbox(decodeHtmlEntities("@ViewBag.table_ConveyorSpeed") + ':' + decodeHtmlEntities("@ViewBag.msg_isvaluebiggerequa0"));
+                return;
+            }
+
+            isValidInteger = /^\d+$/.test(document.getElementById('txt_Hermes-Recipe-TopClearanceHeight').value);
+            if (id == "WorkOrder" && !((parseInt(document.getElementById('txt_Hermes-Recipe-TopClearanceHeight').value, 10) >= 0) && isValidInteger)) {
+                msgbox(decodeHtmlEntities("@ViewBag.table_TopClearanceHeight") + ':' + decodeHtmlEntities("@ViewBag.msg_isvaluebiggerequa0"));
+                return;
+            }
+
+            isValidInteger = /^\d+$/.test(document.getElementById('txt_Hermes-Recipe-BottomClearanceHeight').value);
+            if (id == "WorkOrder" && !((parseInt(document.getElementById('txt_Hermes-Recipe-BottomClearanceHeight').value, 10) >= 0) && isValidInteger)) {
+                msgbox(decodeHtmlEntities("@ViewBag.table_BottomClearanceHeight") + ':' + decodeHtmlEntities("@ViewBag.msg_isvaluebiggerequa0"));
+                return;
+            }
+
+            isValidInteger = /^\d+$/.test(document.getElementById('txt_Hermes-Recipe-Weight').value);
+            if (id == "WorkOrder" && !((parseInt(document.getElementById('txt_Hermes-Recipe-Weight').value, 10) >= 0) && isValidInteger)) {
+                msgbox(decodeHtmlEntities("@ViewBag.table_Weight") + ':' + decodeHtmlEntities("@ViewBag.msg_isvaluebiggerequa0"));
+                return;
+            }
+            if (id == "WorkOrder" && !(isASCII(document.getElementById('txt_Hermes-Recipe-WorkOrderID').value))) {
+                msgbox("WorkOrder " + "@ViewBag.table_WorkOrderID:" + ":" + "@ViewBag.msg_format_wrong");
+                return;
+            }
+            if (id == "WorkOrder" && !(isASCII(document.getElementById('txt_Hermes-Recipe-BatchID').value))) {
+                msgbox("WorkOrder " + "@ViewBag.table_BatchID:" + ":" + "@ViewBag.msg_format_wrong");
+                return;
+            }
+            if (!(isASCII(topbarcode))  || topbarcodeisOnlySpaces) {
+                msgbox("WorkOrder " + "TopBarCode:" + "@ViewBag.msg_format_wrong");
+                return;
+            }
+            if (!(isASCII(bottombarcode)) || bottombarcodeisOnlySpaces) {
+                msgbox("WorkOrder " + "BottomBarCode:" + "@ViewBag.msg_format_wrong");
+                return;
+            }
+
+            //檢查SUB資料
+            if (id == "WorkOrder") {
+                var SUB_inputElements = document.querySelectorAll('#workorder_setting input[id^="SB_Bc_"]');
+                var isreturn = false;
+                // 迭代每個輸入框，提取其值並存儲到物件中
+                SUB_inputElements.forEach(function (input) {
+                    var name = input.name;
+                    var parts = name.split("-");
+                    var SB_Pos = parts[0];
+                    var SB_Bc = input.value;
+                    if (id == "WorkOrder" && !(isASCII(SB_Bc))) {
+                        msgbox("SubBoards " + "SB_Pos:" + SB_Pos + "@ViewBag.msg_format_wrong");
+                        isreturn = true;
+                        return;
+                    }
+                });
+                if (isreturn) {
+                    return;
+                }
+            }
+
+            // 迭代每個輸入框，提取其值並存儲到物件中
+            inputElements.forEach(function (input) {
+                var name = input.name;
+                var parts = name.split("-");
+                var inputData = {
+                    Name: parts[2],
+                    Value: input.value
+                };
+                dataList.push(inputData);
+            });
+
+            // 迭代每個選項框，提取其值並存儲到物件中
+            selectElements.forEach(function (select) {
+                var name = select.name;
+                var parts = name.split("-");
+                var selectData = {
+                    Name: parts[2],
+                    Value: select.value
+                };
+                dataList.push(selectData);
+            });
+
+            // 迭代每個輸入框，提取其值並存儲到物件中
+            SUB_inputElements.forEach(function (input) {
+                var name = input.name;
+                var parts = name.split("-");
+                var inputData = {
+                    SB_Pos: parts[0],
+                    SB_Bc: input.value,
+                    SB_St: parts[1]
+                };
+                SUBdataList.push(inputData);
+            });
+
+            // 創建一個新的 XMLHttpRequest 物件
+            //使用 AJAX 回傳給伺服器
+            var xhr = new XMLHttpRequest();
+            xhr.open("POST", "/Home/Inquirybarcode", true); // 確保 URL 正確
+            xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8");
+            var data = "List=" + encodeURIComponent(JSON.stringify(dataList)) + "&SUBList=" + encodeURIComponent(JSON.stringify(SUBdataList)) + "&UserName=" + encodeURIComponent(getCookie('user_name'));
+
+            // 定義當請求完成時的回調函數
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                        // 請求成功，您可以在此處處理回應
+                        console.log("設定成功");
+                    } else {
+                        console.error("請求失敗，狀態碼：" + xhr.status);
+                        msgbox(xhr.status + error);
+                    }
+                }
+            };
+            // 使用 JSON 數據發送請求
+            xhr.send(data);
+        }
+        //刪除機內板資料
+        async function dele_storage(boardID) {
+            var candele = await checkmsgbox("@ViewBag.msg_dele_storage" + boardID);
+            if (candele) {
+                // 創建一個新的 XMLHttpRequest 物件
+                //使用 AJAX 回傳給伺服器
+                var xhr = new XMLHttpRequest();
+                xhr.open("POST", "/Home/dele_storage", true); // 確保 URL 正確
+                xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8");
+                var data = "boardID=" + boardID + "&UserID=" + encodeURIComponent(decrypt(getCookie('ID')));// 構建請求參數字符串
+
+                // 定義當請求完成時的回調函數
+                xhr.onreadystatechange = function () {
+                    if (xhr.readyState === 4) {
+                        if (xhr.status === 200) {
+                            // 請求成功，您可以在此處處理回應
+                            console.log("設定成功");
+                        } else {
+                            console.error("請求失敗，狀態碼：" + xhr.status);
+                            msgbox(xhr.status + error);
+                        }
+                    }
+                };
+                // 使用 JSON 數據發送請求
+                xhr.send(data);
+            } else {
+                return;
+            }
+
+        }
+        //變更SB_Bc的name
+        document.addEventListener("DOMContentLoaded", function () {
+            // 在DOM準備就緒後執行的代碼
+
+            // 獲取 Digital 元素
+            var SubElement = document.getElementById('workorder_subboards');
+            if (SubElement) {
+                // 監聽所有選擇框的變化事件，使用事件委託
+                SubElement.addEventListener('change', function (event) {
+                    // 檢查觸發事件的元素是否是 select
+                    if (event.target.tagName === 'SELECT') {
+                        // 獲取當前選擇框的ID和值
+                        var SubName = event.target.name;
+                        var selectedValue = event.target.value;
+
+                        document.getElementById('SB_Bc_' + SubName).name = SubName + '-' + selectedValue;
+                    }
+                });
+            }
+        });
+        //新增子板欄位
+        function NewSubBoard() {
+            // 獲取所有的 input 元素
+            var inputElements = document.querySelectorAll('#workorder_subboards input');
+
+            // 定義最大的 SB_Pos 值
+            var maxSB_Pos = -1;
+
+            // 遍歷所有的 input 元素
+            inputElements.forEach(function (input) {
+                // 獲取 input 元素的 id 屬性
+                var id = input.id;
+                // 檢查是否是以 "SB_Pos_" 開頭的 id
+                if (id.startsWith('SB_Pos_')) {
+                    // 將 id 中的 "SB_Pos_" 部分替換為空字串，得到數字部分
+                    var pos = parseInt(id.replace('SB_Pos_', ''));
+                    // 更新最大的 SB_Pos 值
+                    maxSB_Pos = Math.max(maxSB_Pos, pos);
+                }
+            });
+
+            maxSB_Pos = maxSB_Pos + 1;
+
+            // 最大的 SB_Pos 值存儲在 maxSB_Pos 中
+            console.log("最大的 SB_Pos 值:", maxSB_Pos);
+
+            // 獲取 workorder_subboards 的 tbody 元素
+            var tbody = document.querySelector('#workorder_subboards tbody');
+
+            // 創建新的 <tr> 元素
+            var newRow = document.createElement('tr');
+
+            // 在新的 <tr> 元素中插入 <th> 元素和 <input> 元素
+            newRow.innerHTML += '<th><input style="width:3vw;" type="text" id="SB_Pos_' + maxSB_Pos + '"class="form-control" required="" value="' + maxSB_Pos + '" disabled=""></th>';
+
+            // 在新的 <tr> 元素中插入 <th> 元素和 <input> 元素
+            newRow.innerHTML += '<th><input style="width:29vw;" type="text" id="SB_Bc_' + maxSB_Pos + '" name="' + maxSB_Pos + '-0" class="form-control" required=""></th>';
+
+            // 在新的 <tr> 元素中插入 <th> 元素和 <select> 元素
+            newRow.innerHTML += '<th><select style="width:16vw;" id="SB_St_' + maxSB_Pos + '" name="' + maxSB_Pos + '" class="form-select td_reason"><option value="0" selected="selected">Subboard of unknown quality</option><option value="1">Good Subboard</option><option value="2">Failed Subboard</option><option value="3">Missing Subboard</option><option value="4">Skip Subboard</option></select></th>';
+
+            // 將新的 <tr> 元素插入到 tbody 的最後
+            tbody.appendChild(newRow);
+
+        }
+        //刪除單一子板資料
+        async function DeleSubBoard() {
+            // 獲取所有的 input 元素
+            var inputElements = document.querySelectorAll('#workorder_subboards input');
+
+            // 定義最大的 SB_Pos 值
+            var maxSB_Pos = -1;
+
+            // 遍歷所有的 input 元素
+            inputElements.forEach(function (input) {
+                // 獲取 input 元素的 id 屬性
+                var id = input.id;
+                // 檢查是否是以 "SB_Pos_" 開頭的 id
+                if (id.startsWith('SB_Pos_')) {
+                    // 將 id 中的 "SB_Pos_" 部分替換為空字串，得到數字部分
+                    var pos = parseInt(id.replace('SB_Pos_', ''));
+                    // 更新最大的 SB_Pos 值
+                    maxSB_Pos = Math.max(maxSB_Pos, pos);
+                }
+            });
+
+            // 最大的 SB_Pos 值存儲在 maxSB_Pos 中
+            console.log("最大的 SB_Pos 值:", maxSB_Pos);
+
+            if (maxSB_Pos == -1) {
+                return;
+            }
+
+            var isDele = await checkmsgbox("@ViewBag.msg_issubdele1" + maxSB_Pos + "@ViewBag.msg_issubdele2");
+            if (isDele) {
+                // 透過最大的 SB_Pos 值構建要刪除的子板的 ID
+                var targetId = 'SB_Pos_' + maxSB_Pos;
+
+                // 獲取要刪除的行
+                var row = document.getElementById(targetId).closest('tr');
+
+                // 刪除該行
+                row.remove();
+            } else {
+                return;
+            }
+        }
+        //刪除所有子板資料
+        async function DeleAll() {
+            // 獲取所有的 input 元素
+            var inputElements = document.querySelectorAll('#workorder_subboards input');
+
+            // 定義最大的 SB_Pos 值
+            var maxSB_Pos = -1;
+
+            // 遍歷所有的 input 元素
+            inputElements.forEach(function (input) {
+                // 獲取 input 元素的 id 屬性
+                var id = input.id;
+                // 檢查是否是以 "SB_Pos_" 開頭的 id
+                if (id.startsWith('SB_Pos_')) {
+                    // 將 id 中的 "SB_Pos_" 部分替換為空字串，得到數字部分
+                    var pos = parseInt(id.replace('SB_Pos_', ''));
+                    // 更新最大的 SB_Pos 值
+                    maxSB_Pos = Math.max(maxSB_Pos, pos);
+                }
+            });
+
+            // 最大的 SB_Pos 值存儲在 maxSB_Pos 中
+            console.log("最大的 SB_Pos 值:", maxSB_Pos);
+
+            if (maxSB_Pos == -1) {
+                return;
+            }
+
+            var isDele = await checkmsgbox("@ViewBag.msg_sub_alldelete");
+            if (isDele) {
+                // 獲取 workorder_subboards 表格
+                var table = document.getElementById('workorder_subboards');
+
+                // 獲取所有行
+                var rows = table.getElementsByTagName('tr');
+
+                // 從最後一行開始遍歷，以防止在遍歷期間刪除行時的索引錯誤
+                for (var i = rows.length - 1; i > 0; i--) {
+                    // 刪除行
+                    rows[i].remove();
+                }
+            } else {
+                return;
+            }
+        }
+
+        //關閉QBI手輸視窗
+        function QBIbox_submit() {
+            var topbarcode = document.getElementById("QBI_topbarcode").value;
+            var topbarcodeisOnlySpaces = topbarcode.trim().length === 0;
+            var bottombarcode = document.getElementById("QBI_bottombarcode").value;
+            var bottombarcodeisOnlySpaces = topbarcode.trim().length === 0;
+            if (topbarcode == "" && bottombarcode == "" || topbarcodeisOnlySpaces && bottombarcodeisOnlySpaces) {
+                msgbox("@ViewBag.msg_nobarcode");
+                return;
+            }
+            if (!isASCII(topbarcode) || !isASCII(bottombarcode)) {
+                msgbox("@ViewBag.msg_format_wrong");
+                return;
+            }
+            document.getElementById('QBIbox').style.display = 'none';
+            var dataList = [];
+            var SUBdataList = [];
+            var QWIisAskedData = {
+                Name: 'QBIisAsked',
+                Value: false
+            };
+            dataList.push(QWIisAskedData);
+            var QWIisSendData = {
+                Name: 'QBIisSend',
+                Value: true
+            };
+            dataList.push(QWIisSendData);
+            var QWItopbarcode = {
+                Name: 'Topbarcode',
+                Value: topbarcode
+            };
+            dataList.push(QWItopbarcode);
+            var QWIbottombarcode = {
+                Name: 'Bottombarcode',
+                Value: bottombarcode
+            };
+            dataList.push(QWIbottombarcode);
+            // 創建一個新的 XMLHttpRequest 物件
+            //使用 AJAX 回傳給伺服器
+            var xhr = new XMLHttpRequest();
+            xhr.open("POST", "/Home/Inquirybarcode", true); // 確保 URL 正確
+            xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8");
+            var data = "List=" + encodeURIComponent(JSON.stringify(dataList)) + "&SUBList=" + encodeURIComponent(JSON.stringify(SUBdataList)) + "&UserName=" + encodeURIComponent(getCookie('user_name'));
+
+            // 定義當請求完成時的回調函數
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                        // 請求成功，您可以在此處處理回應
+                        console.log("設定成功");
+                        document.getElementById("txt_Hermes-Recipe-Topbarcode").value = document.getElementById("QBI_topbarcode").value;
+                        document.getElementById("txt_Hermes-Recipe-Bottombarcode").value = document.getElementById("QBI_bottombarcode").value;
+                        document.getElementById("QBI_topbarcode").value = "";
+                        document.getElementById("QBI_bottombarcode").value = "";
+                    } else {
+                        console.error("請求失敗，狀態碼：" + xhr.status);
+                        msgbox(xhr.status + error);
+                    }
+                }
+            };
+            // 使用 JSON 數據發送請求
+            xhr.send(data);
+        }
+
+        //開啟歷史資料
+        function AskHistory() {
+            currentPage = 1; // 目前頁數
+            // 取得當前日期
+            let currentDate = new Date();
+
+            // 將日期格式化為 YYYY-MM-DD 格式
+            let year = currentDate.getFullYear();
+            let month = String(currentDate.getMonth() + 1).padStart(2, '0');
+            let day = String(currentDate.getDate()).padStart(2, '0');
+            let formattedDate = `${year}-${month}-${day}`;
+            document.getElementById('datepicker').value = decodeHtmlEntities('@ViewBag.btn_Productiondate') + '_' + formattedDate; // 更新日期選擇器中的日期為當前日期
+            document.getElementById('currentDayBtn').style.display = 'none';
+            AskHistoryData();
+            document.getElementById('overlay').style.display = 'block';
+            document.getElementById("HistoryModal").style.display = "block";
+        }
+
+        //呼叫歷史資料
+        function AskHistoryData() {
+            var HistoryData_arrived = "", HistoryData_departed = "", HistoryData_dateTime;
+            // 創建一個新的 XMLHttpRequest 物件
+            //使用 AJAX 回傳給伺服器
+            var xhr = new XMLHttpRequest();
+            xhr.open("POST", "/Home/ASkHistoryData", true); // 確保 URL 正確
+            xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8");
+            var data = "Page=" + encodeURIComponent(JSON.stringify(currentPage - 1)) + "&Datetime=" + encodeURIComponent(JSON.stringify(document.getElementById('datepicker').value.replace(decodeHtmlEntities('@ViewBag.btn_Productiondate') + '_', '')));
+
+            // 定義當請求完成時的回調函數
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                        // 請求成功，您可以在此處處理回應
+                        console.log("設定成功");
+                        HistoryData_arrived = JSON.parse(xhr.responseText).arrived;
+                        HistoryData_departed = JSON.parse(xhr.responseText).departed;
+                        maxPage = JSON.parse(xhr.responseText).maxPage;
+
+                        console.log(JSON.parse(xhr.responseText));
+
+                        // 更新 BoardArrivedHistory 和 BoardDepartedHistory 的內容
+                        var arrived_HistoryBox = document.getElementById("BoardArrivedHistory");
+                        var departed_HistoryBox = document.getElementById("BoardDepartedHistory");
+
+                        var html = "";
+
+                        if (maxPage > 1) {
+                            for (var i = 1; i <= maxPage; i++) {
+                                html += `<option value="${i}" ${i === currentPage ? 'selected' : ''}>${i}</option>`;
+                            }
+                            document.getElementById('currentPage').innerHTML = html;
+                        }
+                        if (maxPage == 0) {
+                            document.getElementById('currentPage').innerHTML = "";
+                        }
+
+                        if (HistoryData_arrived.length == 0 || StorageLength != HistoryData_arrived.length) {
+                            StorageLength = HistoryData_arrived.length;
+                            arrived_HistoryBox.innerHTML = "";
+                            departed_HistoryBox.innerHTML = "";
+
+                            var arrived_html = "", departed_html = ""; // 定義一個空的 HTML 字符串
+
+
+                            HistoryData_arrived.forEach(function (item) {
+                                arrived_html += `
+                                                                <div class="accordion-item">
+                                                                    <h2 class="accordion-header" id="flush-heading-${item.boardID}" style="display:flex;">
+                                                                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#flush-collapse-${item.timestamp.replace(/[:. ]/g, '-')}-${item.boardID}" aria-expanded="false" aria-controls="flush-collapse-${item.boardID}" style="background-color:#545454; color:white;">
+                                                                            ${item.timestamp} | ${item.boardID}
+                                                                        </button>
+                                                                    </h2>
+                                                                    <div id="flush-collapse-${item.timestamp.replace(/[:. ]/g, '-')}-${item.boardID}" class="accordion-collapse collapse" aria-labelledby="flush-heading-${item.boardID}" data-bs-parent="#accordionFlushExample">
+                                                                        <div class="accordion-body">
+                                                                            <table class="table storange">
+                                                                                <tbody>
+                                                                                   <tr>
+                                                                                        <th>TimeStamp</th>
+                                                                                        <td>${item.timestamp}</td>
+                                                                                    </tr>
+                                                                                    <tr>
+                                                                                        <th>Board ID</th>
+                                                                                        <td>${item.boardID}</td>
+                                                                                    </tr>
+                                                                                    <tr>
+                                                                                        <th>Created By</th>
+                                                                                        <td>${item.createdBy}</td>
+                                                                                    </tr>
+                                                                                    <tr>
+                                                                                        <th>Product Type ID</th>
+                                                                                        <td>${item.productTypeID}</td>
+                                                                                    </tr>
+                                                                                    <tr>
+                                                                                        <th>Top Barcode</th>
+                                                                                        <td>${item.topBarcode}</td>
+                                                                                    </tr>
+                                                                                    <tr>
+                                                                                        <th>Bottom Barcode</th>
+                                                                                        <td>${item.bottomBarcode}</td>
+                                                                                    </tr>
+                                                                                    <tr>
+                                                                                        <th>Work Order ID</th>
+                                                                                        <td>${item.workOrderID}</td>
+                                                                                    </tr>
+                                                                                    <tr>
+                                                                                        <th>Length</th>
+                                                                                        <td>${item.length}</td>
+                                                                                    </tr>
+                                                                                    <tr>
+                                                                                        <th>Flipped</th>
+                                                                                        <td>${item.flipped}</td>
+                                                                                    </tr>
+                                                                                    <tr>
+                                                                                        <th>Failed</th>
+                                                                                        <td>${item.failed}</td>
+                                                                                    </tr>
+                                                                                    <tr>
+                                                                                        <th>Width</th>
+                                                                                        <td>${item.width}</td>
+                                                                                    </tr>
+                                                                                    <tr>
+                                                                                        <th>Thickness</th>
+                                                                                        <td>${item.thickness}</td>
+                                                                                    </tr>
+                                                                                    <tr>
+                                                                                        <th>Conveyor Speed</th>
+                                                                                        <td>${item.conveyorSpeed}</td>
+                                                                                    </tr>
+                                                                                    <tr>
+                                                                                        <th>Top Clearance Height</th>
+                                                                                        <td>${item.topClearanceHeight}</td>
+                                                                                    </tr>
+                                                                                    <tr>
+                                                                                        <th>Bottom Clearance Height</th>
+                                                                                        <td>${item.bottomClearanceHeight}</td>
+                                                                                    </tr>
+                                                                                    <tr>
+                                                                                        <th>Weight</th>
+                                                                                        <td>${item.weight}</td>
+                                                                                    </tr>
+                                                                                    <tr>
+                                                                                        <th>Batch ID</th>
+                                                                                        <td>${item.batchID}</td>
+                                                                                    </tr>
+                                                                                    <tr>
+                                                                                        <th>Route</th>
+                                                                                        <td>${item.route}</td>
+                                                                                    </tr>
+                                                                                    <tr>
+                                                                                        <th>Action</th>
+                                                                                        <td>${item.action}</td>
+                                                                                    </tr>
+                                                                                    <tr>
+                                                                                        <th>SubBoard</th>
+                                                                                        ${item.sub != null ? `<td>${item.sub.trim().slice(0, -1).replace(/[;]/g, '</td><tr><th></th><td>')}</td>` : `<td>${item.sub}</td>`}
+                                                                                    </tr>
+                                                                               </tbody>
+                                                                            </table>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                `;
+                            });
+                            HistoryData_departed.forEach(function (item) {
+                                departed_html += `
+                                                                        <div class="accordion-item">
+                                                                            <h2 class="accordion-header" id="flush-heading-${item.boardID}" style="display:flex;">
+                                                                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#flush-collapse-${item.timestamp.replace(/[:. ]/g, '-')}-${item.boardID}" aria-expanded="false" aria-controls="flush-collapse-${item.boardID}" style="background-color:#545454; color:white;">
+                                                                                    ${item.timestamp} | ${item.boardID}
+                                                                                </button>
+                                                                            </h2>
+                                                                            <div id="flush-collapse-${item.timestamp.replace(/[:. ]/g, '-')}-${item.boardID}" class="accordion-collapse collapse" aria-labelledby="flush-heading-${item.boardID}" data-bs-parent="#accordionFlushExample">
+                                                                                <div class="accordion-body">
+                                                                                    <table class="table storange">
+                                                                                        <tbody>
+                                                                                           <tr>
+                                                                                                <th>TimeStamp</th>
+                                                                                                <td>${item.timestamp}</td>
+                                                                                            </tr>
+                                                                                            <tr>
+                                                                                                <th>Board ID</th>
+                                                                                                <td>${item.boardID}</td>
+                                                                                            </tr>
+                                                                                            <tr>
+                                                                                                <th>Created By</th>
+                                                                                                <td>${item.createdBy}</td>
+                                                                                            </tr>
+                                                                                            <tr>
+                                                                                                <th>Product Type ID</th>
+                                                                                                <td>${item.productTypeID}</td>
+                                                                                            </tr>
+                                                                                            <tr>
+                                                                                                <th>Top Barcode</th>
+                                                                                                <td>${item.topBarcode}</td>
+                                                                                            </tr>
+                                                                                            <tr>
+                                                                                                <th>Bottom Barcode</th>
+                                                                                                <td>${item.bottomBarcode}</td>
+                                                                                            </tr>
+                                                                                            <tr>
+                                                                                                <th>Work Order ID</th>
+                                                                                                <td>${item.workOrderID}</td>
+                                                                                            </tr>
+                                                                                            <tr>
+                                                                                                <th>Length</th>
+                                                                                                <td>${item.length}</td>
+                                                                                            </tr>
+                                                                                            <tr>
+                                                                                                <th>Flipped</th>
+                                                                                                <td>${item.flipped}</td>
+                                                                                            </tr>
+                                                                                            <tr>
+                                                                                                <th>Failed</th>
+                                                                                                <td>${item.failed}</td>
+                                                                                            </tr>
+                                                                                            <tr>
+                                                                                                <th>Width</th>
+                                                                                                <td>${item.width}</td>
+                                                                                            </tr>
+                                                                                            <tr>
+                                                                                                <th>Thickness</th>
+                                                                                                <td>${item.thickness}</td>
+                                                                                            </tr>
+                                                                                            <tr>
+                                                                                                <th>Conveyor Speed</th>
+                                                                                                <td>${item.conveyorSpeed}</td>
+                                                                                            </tr>
+                                                                                            <tr>
+                                                                                                <th>Top Clearance Height</th>
+                                                                                                <td>${item.topClearanceHeight}</td>
+                                                                                            </tr>
+                                                                                            <tr>
+                                                                                                <th>Bottom Clearance Height</th>
+                                                                                                <td>${item.bottomClearanceHeight}</td>
+                                                                                            </tr>
+                                                                                            <tr>
+                                                                                                <th>Weight</th>
+                                                                                                <td>${item.weight}</td>
+                                                                                            </tr>
+                                                                                            <tr>
+                                                                                                <th>Batch ID</th>
+                                                                                                <td>${item.batchID}</td>
+                                                                                            </tr>
+                                                                                            <tr>
+                                                                                                <th>Route</th>
+                                                                                                <td>${item.route}</td>
+                                                                                            </tr>
+                                                                                            <tr>
+                                                                                                <th>Action</th>
+                                                                                                <td>${item.action}</td>
+                                                                                            </tr>
+                                                                                            <tr>
+                                                                                                <th>SubBoard</th>
+                                                                                                ${item.sub != null ? `<td>${item.sub.trim().slice(0, -1).replace(/[;]/g, '</td><tr><th></th><td>')}</td>` : `<td>${item.sub}</td>`}
+                                                                                            </tr>
+                                                                                       </tbody>
+                                                                                    </table>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                        `;
+                            });
+                            // 將完整的 HTML 字符串賦值給 HistoryBox 的 innerHTML 屬性
+                            arrived_HistoryBox.innerHTML = arrived_html;
+                            departed_HistoryBox.innerHTML = departed_html;
+
+                            document.getElementById('overlay').style.display = 'none';
+
+                            var TB_ADD = document.getElementById("tb_${ item.boardID }");
+                            //console.log(TB_ADD);
+                            if (TB_ADD != null) {
+                                TB_ADD.appendChild(add_tb);
+                            }
+                        }
+                    } else {
+                        console.error("請求失敗，狀態碼：" + xhr.status);
+                        msgbox(xhr.status + error);
+                    }
+                }
+            };
+            // 使用 JSON 數據發送請求
+            xhr.send(data);
+        }
+
+        //關閉操作畫面
+        document.querySelector('#HistoryModal .close').addEventListener('click', function () {
+            var arrived_HistoryBox = document.getElementById("BoardArrivedHistory");
+            var departed_HistoryBox = document.getElementById("BoardDepartedHistory");
+            arrived_HistoryBox.innerHTML = "";
+            departed_HistoryBox.innerHTML = "";
+            document.getElementById('HistoryModal').style.display = 'none';
+        });
+
+        //上一頁
+        function previousPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                document.getElementById('overlay').style.display = 'block';
+                AskHistoryData();
+                // 在這裡執行回到上一頁的操作，例如重新載入上一頁的資料
+            }
+        }
+
+        //下一頁
+        function nextPage() {
+            if (currentPage < maxPage) {
+                currentPage++;
+                document.getElementById('overlay').style.display = 'block';
+                AskHistoryData();
+                // 在這裡執行到下一頁的操作，例如重新載入下一頁的資料
+            }
+        }
+
+        //select看目前頁數
+        document.getElementById('currentPage').addEventListener('change', function (event) {
+            currentPage = parseInt(event.target.value);
+            document.getElementById('overlay').style.display = 'block';
+            AskHistoryData();
+            console.log('您選擇的頁數是：', currentPage);
+            // 在這裡執行您想要的操作，例如根據所選頁數加載相應的數據等等
+        });
+
+        document.addEventListener('DOMContentLoaded', function () {
+            // 取得當前日期
+            let currentDate = new Date();
+
+            // 將日期格式化為 YYYY-MM-DD 格式
+            let year = currentDate.getFullYear();
+            let month = String(currentDate.getMonth() + 1).padStart(2, '0');
+            let day = String(currentDate.getDate()).padStart(2, '0');
+            let formattedDate = `${year}-${month}-${day}`;
+
+            // 將 input 的值設置為當前日期
+            document.getElementById('datepicker').value = decodeHtmlEntities('@ViewBag.btn_Productiondate') + '_' + formattedDate;
+
+            // 初始化日期選擇器
+            $("#datepicker").datepicker({
+                dateFormat: decodeHtmlEntities('@ViewBag.btn_Productiondate') + '_' + 'yy-mm-dd', // 設置日期格式
+                changeMonth: true, // 允許切換月份
+                changeYear: true, // 允許切換年份
+                onSelect: function (dateText, inst) {
+                    var selectedDate = $(this).datepicker('getDate');
+                    var currentDate = new Date();
+                    currentDate.setHours(0, 0, 0, 0); // 將時間設置為午夜以進行比較
+
+                    // 假設 selectedDate 是 JavaScript 中的日期對象，formattedDate 是格式化後的日期字串
+                    var selectedDateString = selectedDate.getFullYear() + '-' + ('0' + (selectedDate.getMonth() + 1)).slice(-2) + '-' + ('0' + selectedDate.getDate()).slice(-2);
+                    if (selectedDateString === formattedDate) {
+                        document.getElementById('currentDayBtn').style.display = 'none';
+                    } else {
+                        document.getElementById('currentDayBtn').style.display = '';
+                    }
+
+                    if (selectedDate > currentDate) {
+                        document.getElementById('currentDayBtn').style.display = 'none';
+                        // 將 input 的值設置為當前日期
+                        $("#datepicker").val(decodeHtmlEntities('@ViewBag.btn_Productiondate') + '_' + formattedDate);
+                    }
+
+                    document.getElementById('overlay').style.display = 'block';
+                    AskHistoryData();
+                }
+            });
+
+            // 點擊前一日按鈕
+            document.getElementById('prevDayBtn').addEventListener('click', function () {
+                var currentDateValue = document.getElementById('datepicker').value.replace(decodeHtmlEntities('@ViewBag.btn_Productiondate') + '_', '');
+                var selectedDate = new Date(currentDateValue);
+                selectedDate.setDate(selectedDate.getDate() - 1); // 減少一天
+                var selectedYear = selectedDate.getFullYear();
+                var selectedMonth = selectedDate.getMonth() + 1;
+                var selectedDay = selectedDate.getDate();
+                var selectedFormattedMonth = selectedMonth < 10 ? '0' + selectedMonth : selectedMonth;
+                var selectedFormattedDay = selectedDay < 10 ? '0' + selectedDay : selectedDay;
+                var selectedFormattedDate = `${selectedYear}-${selectedFormattedMonth}-${selectedFormattedDay}`;
+                document.getElementById('datepicker').value = decodeHtmlEntities('@ViewBag.btn_Productiondate') + '_' + selectedFormattedDate; // 更新日期選擇器中的日期
+                if (selectedFormattedDate == formattedDate) {
+                    document.getElementById('currentDayBtn').style.display = 'none';
+                } else {
+                    document.getElementById('currentDayBtn').style.display = '';
+                }
+                currentPage = 1;
+                document.getElementById('overlay').style.display = 'block';
+                AskHistoryData();
+            });
+
+            // 點擊後一日按鈕
+            document.getElementById('nextDayBtn').addEventListener('click', function () {
+                var currentDateValue = document.getElementById('datepicker').value.replace(decodeHtmlEntities('@ViewBag.btn_Productiondate') + '_', ''); // 去除 "生產日期_" 部分
+                var selectedDate = new Date(currentDateValue);
+
+                // 設置時、分、秒、毫秒為0，只比較日期部分
+                selectedDate.setHours(0, 0, 0, 0);
+
+                // 檢查是否超過當前日期
+                var currentDate = new Date(); // 當前日期
+                currentDate.setHours(0, 0, 0, 0); // 設置時、分、秒、毫秒為0，只比較日期部分
+                if (selectedDate >= currentDate) {
+                    // 如果超過當前日期，則不進行任何操作
+                    return;
+                }
+
+                selectedDate.setDate(selectedDate.getDate() + 1); // 增加一天
+                var selectedYear = selectedDate.getFullYear();
+                var selectedMonth = selectedDate.getMonth() + 1;
+                var selectedDay = selectedDate.getDate();
+                var selectedFormattedMonth = selectedMonth < 10 ? '0' + selectedMonth : selectedMonth;
+                var selectedFormattedDay = selectedDay < 10 ? '0' + selectedDay : selectedDay;
+                var selectedFormattedDate = `${selectedYear}-${selectedFormattedMonth}-${selectedFormattedDay}`;
+                document.getElementById('datepicker').value = decodeHtmlEntities('@ViewBag.btn_Productiondate') + '_' + selectedFormattedDate; // 更新日期選擇器中的日期
+                if (selectedFormattedDate == formattedDate) {
+                    document.getElementById('currentDayBtn').style.display = 'none';
+                } else {
+                    document.getElementById('currentDayBtn').style.display = '';
+                }
+                currentPage = 1;
+                document.getElementById('overlay').style.display = 'block';
+                AskHistoryData();
+            });
+
+            // 點擊當日按鈕
+            document.getElementById('currentDayBtn').addEventListener('click', function () {
+                document.getElementById('datepicker').value = decodeHtmlEntities('@ViewBag.btn_Productiondate') + '_' + formattedDate; // 更新日期選擇器中的日期為當前日期
+                currentPage = 1;
+                document.getElementById('overlay').style.display = 'block';
+                document.getElementById('currentDayBtn').style.display = 'none';
+                AskHistoryData();
+            });
+        });
+
+        // 定義要鎖定的視窗大小
+        var lockedWidth = 1912;
+        var lockedHeight = 966;
+
+        // 函數用於設置視窗大小
+        function setWindowSize() {
+            // 獲取瀏覽器視口的寬度和高度
+            var width = window.innerWidth;
+            var height = window.innerHeight;
+
+            // 將獲得的尺寸顯示在網頁上
+            console.log('瀏覽器視口寬度: ' + width + 'px, 高度: ' + height + 'px');
+            if (width < lockedWidth || height < lockedHeight) {
+                document.getElementById("around").style.position = '';
+            } else {
+                document.getElementById("around").style.position = 'fixed';
+            }
+        }
+
+        // 初次加載頁面時，設置視窗大小
+        setWindowSize();
+
+        // 監聽 resize 事件，並在視窗大小發生變化時再次設置大小
+        window.addEventListener('resize', setWindowSize);
+    </script>
+}

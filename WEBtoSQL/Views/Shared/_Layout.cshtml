@@ -1,0 +1,1308 @@
+﻿<!DOCTYPE html>
+
+@using WEBtoSQL.Models;
+@{
+    string readeriserror = ViewBag.readeriserror, machineiserror = ViewBag.machineiserror;
+    bool reader1enable = Convert.ToBoolean(ViewBag.Reader1Enable), reader2enable = Convert.ToBoolean(ViewBag.Reader2Enable),
+        machineenable = Convert.ToBoolean(ViewBag.MachineEnable);
+}
+
+<style>
+    .back {
+        background: -webkit-linear-gradient(rgb(110, 110, 110),rgb(41, 46, 41));
+        background: -o-linear-gradient(rgb(110, 110, 110),rgb(41, 46, 41));
+        background: -moz-linear-gradient(rgb(110, 110, 110),rgb(41, 46, 41));
+        background: linear-gradient(rgb(110, 110, 110),rgb(41, 46, 41));
+        width: 100%;
+        height: 100%;
+    }
+
+    .modal {
+        z-index: 9950 !important;
+    }
+
+    a.navbar-brand img {
+        max-width: 200px; /* 设置最大宽度为100像素 */
+        display: block
+    }
+
+    .usemodal_img {
+        max-width: 40%; /* 设置最大宽度为100像素 */
+        display: block
+    }
+
+    .watermark {
+        position: absolute;
+        opacity: 0.08; /* 調整透明度 */
+        transform: rotate(45deg);
+        pointer-events: none; /* 避免阻擋交互操作 */
+    }
+
+    .msgbox {
+        display: none;
+        position: fixed;
+        top: 10%;
+        left: 50%;
+        width: 400px;
+        border-radius: 10px;
+        transform: translate(-50%, -50%);
+        background-color: #fff;
+        border: 1px solid #ccc;
+        padding: 20px;
+        box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.2);
+        z-index: 9999;
+    }
+
+    .msgbox_btns {
+        text-align: right;
+    }
+
+    /*透明窗*/
+    .overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5); /* 設定透明度，這裡的 0.5 是透明度，可以根據需要調整 */
+        z-index: 9990; /* 將這個值設為比提示框更小的值，以確保它在 Z 軸上處於提示框的後面 */
+    }
+
+</style>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"]IPC Hermes Adapter</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/WEBtoSQL.styles.css" asp-append-version="true" />
+</head>
+<body class="back">
+    <header class="position-sticky top-0" style="z-index: 5555; min-width:1912px;">
+        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
+            <div class="container-fluid">
+                <a class="navbar-brand">
+                    <img src="Logo_昇捷頌.png" alt="Sunsda">
+                </a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
+                        aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
+                    <ul class="navbar-nav">
+                        <li class="nav-item">
+
+                        </li>
+                    </ul>
+                    <ul class="navbar-nav">
+                        <!--首頁-->
+                        <li class="nav-item" id="btn_home">
+                            <a id="HomeButton" type="button" class="btn text-dark">@ViewBag.Header_Home</a>
+                        </li>
+                        <!--歷史資料-->
+                        <li class="nav-item" id="btn-history" style="display:none;">
+                            <a class="btn nav-link text-dark" onclick="AskHistory()">@ViewBag.Header_history</a>
+                        </li>
+                        <!-- 使用者 -->
+                        <li class="nav-item" id="user_manage" style="display:none">
+                            <a id="AuthorityButton" type="button" class="btn text-dark">@ViewBag.Header_accountmanage</a>
+                        </li>
+                        <!--Setting-->
+                        <li class="nav-item">
+                            <a id="settingButton" type="button" class="btn text-dark">@ViewBag.Header_setting</a>
+                        </li>
+                        <!--測試COM連線狀況-->
+                        <li class="nav-item" style="display:@(!machineenable && !reader1enable && !reader2enable ? "none" : "")">
+                            @*<a sty>@Html.ActionLink("測試COM連線狀況","ComTest");</a>*@
+                            <a class="btn nav-link text-dark" onclick="ComTest()">@ViewBag.Header_comtest</a>
+                        </li>
+                        <!--重新開啟服務-->
+                        <li class="nav-item">
+                            @*<a sty>@Html.ActionLink("重新開啟服務","ResetService");</a>*@
+                            <a class="btn nav-link text-dark" onclick="ResetService()">@ViewBag.Header_resetserver</a>
+                        </li>
+                        <!--關閉Alarm-->
+                        <li class="nav-item">
+                            @*<a sty>@Html.ActionLink("關閉Alarm","ResetAlarm");</a>*@
+                            <a class="btn nav-link text-dark" onclick="ResetAlarm()">@ViewBag.Header_resetalarm</a>
+                        </li>
+                        <!--語言設定-->
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink" role="button" data-bs-toggle="dropdown" aria-expanded="false" style="margin-bottom: -20px; color: #0077cc;">
+                                @ViewBag.Header_language
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
+                                <li><a class="dropdown-item" onclick="changeLanguage('en-US')">English</a></li>
+                                <li><a class="dropdown-item" onclick="changeLanguage('zh-TW')">中文(繁)</a></li>
+                                <li><a class="dropdown-item" onclick="changeLanguage('zh-CN')">中文(简)</a></li>
+                            </ul>
+                        </li>
+                        <!-- 使用者名稱 -->
+                        <li class="nav-item" style="margin-right: 1rem;">
+                            <a class="nav-link text-dark" id="user_name">Guest</a>
+                        </li>
+                        <!-- 登入按鈕 -->
+                        <li class="nav-item">
+                            <a id="Head_loginButton" class="btn btn-primary"> @ViewBag.Header_login </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <!-- 使用權限模態框 -->
+    <div class="modal" tabindex="-1" role="dialog" id="UseModal">
+        <div style="max-width: 100vw; padding: 5%; text-align:center; position: relative;" role="document">
+            <div class="modal-content" style="background-color:lightgray; color:black; position: relative; overflow: hidden;">
+                <div class="modal-header">
+                    @*<img class="usemodal_img watermark" src="Logo_昇捷頌.png" alt="Sunsda">*@
+                    <h5 class="modal-title" style="text-align:center; width: 100%; font-size:90px;">無使用權限</h5>
+                </div>
+                <div class="modal-body">
+                    <div style="height:50vh;">
+                        <p style="font-size:55px;">目前無法使用，請插入License Key</p>
+                    </div>
+                    <p style="color:red; font-size:small;">※如未購買使用權限License Key，請聯繫廠商業務，將有專員為您服務</p>
+                    @*<img class="usemodal_img watermark" src="Logo_昇捷頌.png" alt="Sunsda">*@
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 登入模態框 -->
+    <div class="modal" tabindex="-1" role="dialog" id="loginModal">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@ViewBag.modal_account</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div id="loginForm">
+                        <!-- 登入表單的欄位 -->
+                        <div class="form-group">
+                            <label for="userID">@ViewBag.modal_userid</label>
+                            <input type="text" class="form-control" id="userID" placeholder="Enter ID">
+                        </div>
+                        <div class="form-group">
+                            <label for="password">@ViewBag.modal_userpassword</label>
+                            <input type="password" class="form-control" id="password" placeholder="Enter PW">
+                        </div>
+                        <br />
+                        <!-- 登入按鈕 -->
+                        <button id="loginButton" class="btn btn-primary">@ViewBag.modal_login</button>
+                    </div>
+                    <div id="loginMessage" style="display: none;">
+                        <!-- 顯示登入消息 -->
+                        <p>請先登入以訪問設置</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 帳號管理模態框 -->
+    <div class="modal" tabindex="-1" role="dialog" id="accountManagementModal">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@ViewBag.modal_accountmanagement</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <!-- 帳號管理表格 -->
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th class="exclude">@ViewBag.modal_userlv</th>
+                                <th class="exclude">@ViewBag.modal_username</th>
+                                <th class="exclude">@ViewBag.modal_operate</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- 使用 Razor 迴圈生成表格行 -->
+                            @foreach (var userMaterial in new Kanban.Models.AuthorityInfo().GetUserMaterials())
+                            {
+                                <tr id="userRow_@userMaterial.Item1">
+                                    <td class="exclude">@userMaterial.Item4</td> <!-- 等級 -->
+                                    <td class="exclude">@userMaterial.Item2</td> <!-- 名稱 -->
+                                    <td class="exclude">
+                                        <button class="btn btn-warning btn-sm" onclick="editAccount('@userMaterial.Item1', '@userMaterial.Item2', '@userMaterial.Item4')">@ViewBag.modal_btn_edit</button>
+                                        <button class="btn btn-danger btn-sm" onclick="removeAccount('@userMaterial.Item1', '@userMaterial.Item2')">@ViewBag.modal_btn_delete</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                    <button id="Additionaccount" type="button" class="btn btn-primary">@ViewBag.modal_btn_addition</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新增/修改帳號模態框-->
+    <div class="modal" tabindex="-1" role="dialog" id="editAccountModal">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modal_title_account"></h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <!-- 新增帳號表單 -->
+                    <form id="addAccountForm">
+                        <div class="form-group">
+                            <label for="newUsername">@ViewBag.modal_username</label>
+                            <input type="text" class="form-control" id="newUsername" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="newUserID">@ViewBag.modal_newid</label>
+                            <input type="text" class="form-control" id="newUserID" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="newPassword">@ViewBag.modal_newpassword</label>
+                            <input type="password" class="form-control" id="newPassword" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="checkPassword">@ViewBag.modal_checkpassword</label>
+                            <input type="password" class="form-control" id="checkPassword" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="UserLevel">@ViewBag.modal_userlv</label>
+                            <select class="form-select" aria-label="Default select example" id="LV_choose">
+                                <option disabled selected>Select Level</option>
+                                <option value="1">Administrator</option>
+                                <option value="2">User</option>
+                            </select>
+                        </div>
+                        <br />
+                        <button id="addAccount" type="button" class="btn btn-primary">@ViewBag.modal_btn_submit</button>
+                    </form>
+                    <!-- 修改帳號表單的欄位 -->
+                    <form id="editAccountForm">
+                        <div class="form-group">
+                            <label for="editUserID">@ViewBag.modal_userid</label>
+                            <input type="text" class="form-control" id="editUserID" required readonly>
+                        </div>
+                        <div class="form-group">
+                            <label for="editUsername">@ViewBag.modal_username</label>
+                            <input type="text" class="form-control" id="editUsername" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="editPassword">@ViewBag.modal_newpassword</label>
+                            <input type="password" class="form-control" id="editPassword" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="editcheclPassword">@ViewBag.modal_checkpassword</label>
+                            <input type="password" class="form-control" id="editcheckPassword" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="editLevel">@ViewBag.modal_userlv</label>
+                            <select class="form-select" aria-label="Default select example" id="editLevel">
+                                <option disabled selected>Select Level</option>
+                                <option value="1">Administrator</option>
+                                <option value="2">User</option>
+                            </select>
+                        </div>
+                        <br />
+                        <!-- 提交修改按鈕 -->
+                        <button id="submitEditAccount" class="btn btn-primary">@ViewBag.modal_btn_editsubmit</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!--   訊息提示框   -->
+    <form class="msgbox" id="msgbox">
+        <div style="margin-bottom:15px;">
+            <span id="msgbox_msg"></span>
+        </div>
+        <div class="msgbox_btns">
+            <button class="btn btn-primary" type="button" style="display:none; font-size:15px; width: 73px; color:white;" id="msgbox_btn_close" onclick="msgbox_close()">@ViewBag.btn_msgbox_ok</button>
+            <button class="btn btn-primary" type="button" style="display:none; font-size:15px; width: 73px; color:white;" id="msgbox_btn_ok">@ViewBag.btn_msgbox_ok</button>
+            <button class="btn btn-primary" type="button" style="display:none; font-size:15px; width: 73px; color: black; background-color:lightgrey; border-color: lightgrey;" id="msgbox_btn_cancel">@ViewBag.btn_msgbox_cancel</button>
+        </div>
+    </form>
+
+    <!-- ComTest模態框 -->
+    <div class="modal" tabindex="-1" role="dialog" id="ComTest">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@ViewBag.Header_comtest</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <p style="display:@(readeriserror != "E" ? "none" : ""); color:red;" id="isreadererror">@ViewBag.msg_isreadererror</p>
+                        <label for="equipmentname">@ViewBag.modal_equipmentname</label>
+                        <select class="form-select" aria-label="Default select example" id="equipmentname" onchange="toggleM1Used()">
+                            <option value="R1" disabled="@(readeriserror == "E" || !reader1enable)">BarCode Reader 1</option>
+                            <option value="R2" disabled="@(readeriserror == "E" || !reader2enable)">BarCode Reader 2</option>
+                            <option value="M1" disabled="@(machineiserror == "E" || !machineenable)">@ViewBag.table_machine</option>
+                        </select>
+                        <br />
+                        <div id="forM1used" style="display:@((machineenable && (readeriserror == "E" || !reader1enable && !reader2enable) && machineiserror != "E") ? "" : "none");">
+                            <label for="testwidth">@ViewBag.table_Width (mm)</label>
+                            <input type="text" class="form-control" id="testwidth" required value="100">
+                            <br />
+                            <label>@ViewBag.lab_RN</label>
+                            <input type="text" class="form-control" required readonly value="TEST" />
+                            <br />
+                        </div>
+                        <button id="btn_ComTest" type="button" class="btn btn-primary" disabled="@((readeriserror == "E" && machineiserror == "E") || (readeriserror == "E" && !machineenable) || (!reader1enable && !reader2enable && machineiserror == "E"))">@ViewBag.modal_btn_submit</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @*畫面覆蓋*@
+    <div class="overlay" id="overlay"></div>
+    <div class="overlay" id="License_overlay"></div>
+    <div class="overlay" id="QBI_overlay"></div>
+
+    <div>
+        <main role="main" class="pb-3">
+            @RenderBody()
+        </main>
+    </div>
+
+    <footer class="border-top footer text-muted">
+    </footer>
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+    <script>
+        /****************************   內部變數   ****************************/
+        //最高權限
+        var addddr = encrypt('Administrator');
+        //小數點第二位格式
+        var regex = /^\d+(\.\d{0,2})?$/;
+        function encrypt(text) {
+            return btoa(text);
+        } function decrypt(text) {
+            return atob(text);
+        }
+        var dfsdfsdfsf = btoa('Administrator');
+
+        /****************************   共用指令   ****************************/
+        //ASCII格式檢查
+        function isASCII(str) {
+            return /^[\x00-\x7F]*$/.test(str);
+        }
+
+        //將ViewBag的亂碼轉換為文字
+        function decodeHtmlEntities(input) {
+            var doc = new DOMParser().parseFromString(input, "text/html");
+            return doc.documentElement.textContent;
+        }
+
+        //識別文字是否為true/false
+        function bool_identify(value) {
+            if (value == "TRUE") {
+                return true;
+            }
+            if (value == "True") {
+                return true;
+            }
+            if (value == "true") {
+                return true;
+            }
+            if (value == "FALSE") {
+                return false;
+            }
+            if (value == "False") {
+                return false;
+            }
+            if (value == "false") {
+                return false;
+            }
+        }
+
+        //取得cookie
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+        }
+
+        //刪除cookie
+        function deleteCookie(name) {
+            document.cookie = name + "=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+        }
+
+        /***   提示視窗   ***/
+        //提示視窗
+        function msgbox(msg) {
+
+            document.getElementById('msgbox_msg').innerHTML = decodeHtmlEntities(msg);
+            document.getElementById('msgbox').style.display = 'block';
+            document.getElementById('overlay').style.display = 'block';
+            document.getElementById('msgbox_btn_ok').style.display = 'none';
+            document.getElementById('msgbox_btn_cancel').style.display = 'none';
+            if (isSetting) {
+                document.getElementById('msgbox_btn_close').style.display = '';
+            }
+            else {
+                document.getElementById('msgbox_btn_close').style.display = 'none';
+
+                //在執行msgbox後?秒執行msgbox_close
+                setTimeout(function () {
+                    msgbox_close();
+                }, 1500);
+            }
+        }
+        //關閉提示視窗
+        function msgbox_close() {
+            document.getElementById('msgbox').style.display = 'none';
+            document.getElementById('msgbox_msg').innerText = "";
+            document.getElementById('msgbox_btn_close').style.display = 'none';
+            document.getElementById('overlay').style.display = 'none';
+
+        }
+        // 確認視窗
+        async function checkmsgbox(msg) {
+            return new Promise((resolve, reject) => {
+                document.getElementById('msgbox_msg').innerHTML = msg;
+                document.getElementById('msgbox').style.display = 'block';
+                document.getElementById('msgbox_btn_close').style.display = 'none';
+                document.getElementById('msgbox_btn_ok').style.display = '';
+                document.getElementById('msgbox_btn_cancel').style.display = '';
+                document.getElementById('overlay').style.display = 'block';
+
+
+                // 添加按鈕點擊事件監聽器
+                document.getElementById('msgbox_btn_ok').addEventListener('click', async function (event) {
+                    document.getElementById('msgbox').style.display = 'none';
+                    document.getElementById('msgbox_btn_ok').style.display = 'none';
+                    document.getElementById('msgbox_btn_cancel').style.display = 'none';
+                    document.getElementById('overlay').style.display = 'none';
+                    resolve(true); // 確定按鈕被點擊，Promise解析為 true
+                });
+
+                document.getElementById('msgbox_btn_cancel').addEventListener('click', async function (event) {
+                    document.getElementById('msgbox').style.display = 'none';
+                    document.getElementById('msgbox_btn_ok').style.display = 'none';
+                    document.getElementById('msgbox_btn_cancel').style.display = 'none';
+                    document.getElementById('overlay').style.display = 'none';
+                    resolve(false); // 取消按鈕被點擊，Promise解析為 false
+                });
+            });
+        }
+
+        /****************************   內部指令   ****************************/
+        //確認權限
+        if (bool_identify("@ViewBag.License_Hermes")) {
+            document.getElementById('UseModal').style.display = 'none';
+            document.getElementById('License_overlay').style.display = 'none';
+        } else {
+            document.getElementById('UseModal').style.display = 'block';
+            document.getElementById('License_overlay').style.display = 'block';
+        }
+
+        // 檢查是否已有 isLoggedIn 的 cookie，如果不存在則設置為 false
+        var isLoggedInCookie = getCookie('isLoggedIn');
+        var user_name = getCookie('user_name');
+
+        if (isLoggedInCookie === undefined) {
+            document.cookie = 'isLoggedIn=false; path=/';
+        }
+        if (user_name === undefined) {
+        } else {
+            var user_lv = getCookie('user_lv');
+            document.getElementById('user_name').innerText = user_name;
+            var loginButton = document.getElementById('Head_loginButton');
+            loginButton.innerText = decodeHtmlEntities("@ViewBag.Header_logout");
+            LV_choose(encrypt(decrypt(user_lv)));
+        }
+
+        //語言記憶
+        document.cookie = 'language=@ViewBag.Language_now; path = /';
+        var cookie_lang = getCookie('language');
+
+        //變更語系
+        async function changeLanguage(langCode) {
+
+            var isleave = true;
+            if (isSetting) {
+                if (originalData(0, false) || originalData(1, false) || originalData(2, false) || originalData(3, false) || originalData(4, false)) {
+                    var isleave = await checkmsgbox(decodeHtmlEntities("@ViewBag.msg_isleave"));
+                }
+                if (!isleave) {
+                    return;
+                }
+            }
+
+            //使用 AJAX 回傳現在的語言給伺服器
+            var xhr = new XMLHttpRequest();
+            xhr.open("POST", "/Home/Index_UpdateLanguage", true); // 確保 URL 正確
+            xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8");
+            var data = "Language=" + encodeURIComponent(langCode);// 構建請求參數字符串
+
+            // 定義當請求完成時的回調函數
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                        // 請求成功，您可以在此處處理回應
+                        console.log("語言設定成功");
+                        location.reload();
+                    } else {
+                        console.error("請求失敗，狀態碼：" + xhr.status);
+                    }
+                }
+            };
+
+            // 使用 JSON 數據發送請求
+            xhr.send(data);
+
+            document.cookie = 'language=' + langCode + '; path = /';
+        }
+
+        //重新啟動伺服器
+        async function ResetService() {
+            var isleave = true;
+            if (isSetting) {
+                if (originalData(0, false) || originalData(1, false) || originalData(2, false) || originalData(3, false) || originalData(4, false)) {
+                    var isleave = await checkmsgbox(decodeHtmlEntities("@ViewBag.msg_isleave"));
+                }
+                if (!isleave) {
+                    return;
+                }
+            }
+            var isreset = await checkmsgbox(decodeHtmlEntities("@ViewBag.msg_restartservice"));
+            if (isreset) {
+                document.getElementById('overlay').style.display = 'block';
+                window.location.href = '/Home/ResetService';
+            } else {
+                return;
+            }
+        }
+
+        //關閉異常燈
+        async function ResetAlarm() {
+            var isleave = true;
+            if (isSetting) {
+                if (originalData(0, false) || originalData(1, false) || originalData(2, false) || originalData(3, false) || originalData(4, false)) {
+                    var isleave = await checkmsgbox(decodeHtmlEntities("@ViewBag.msg_isleave"));
+                }
+                if (!isleave) {
+                    return;
+                }
+            }
+            var isreset = await checkmsgbox(decodeHtmlEntities("@ViewBag.msg_restartalarm"));
+            if (isreset) {
+                //使用 AJAX 回傳現在的語言給伺服器
+                var xhr = new XMLHttpRequest();
+                xhr.open("POST", "/Home/ResetAlarm", true); // 確保 URL 正確
+                xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8");
+                // 定義當請求完成時的回調函數
+                xhr.onreadystatechange = function () {
+                    if (xhr.readyState === 4) {
+                        if (xhr.status === 200) {
+                            // 請求成功，您可以在此處處理回應
+                            console.log("語言設定成功");
+                            location.reload();
+                        } else {
+                            console.error("請求失敗，狀態碼：" + xhr.status);
+                        }
+                    }
+                };
+
+                // 使用 JSON 數據發送請求
+                xhr.send("AlarmClose");
+            } else {
+                return;
+            }
+        }
+
+        // 顯示操作畫面
+        function ComTest() {
+            // 檢查用戶是否已登入，這裡通過檢查 cookie 來實現
+            var isLoggedIn = getCookie('isLoggedIn');
+            var user_name = getCookie('user_name');
+
+            if (user_name === undefined) {
+                msgbox(decodeHtmlEntities("@ViewBag.modal_msg_nopermissions"));
+            } else {
+                if (getCookie('user_lv') === addddr) {
+                    // 已登入，顯示操作畫面
+                    document.getElementById('ComTest').style.display = 'block';
+                } else {
+                    msgbox(decodeHtmlEntities("@ViewBag.modal_msg_lowlv"));
+                }
+            }
+        }
+        //關閉操作畫面
+        document.querySelector('#ComTest .close').addEventListener('click', function () {
+            document.getElementById('ComTest').style.display = 'none';
+        });
+
+        // 顯示登入視窗
+        document.getElementById('Head_loginButton').addEventListener('click', async function (event) {
+            // 檢查登入狀態
+            isLoggedInCookie = getCookie('isLoggedIn');
+            user_name = getCookie('user_name');
+
+            if (user_name === undefined) {
+                // 顯示登入畫面
+                document.getElementById('loginModal').style.display = 'block';
+                // 隱藏登入消息
+                document.getElementById('loginMessage').style.display = 'none';
+            } else {
+                var isleave = true;
+                if (isSetting) {
+                    if (originalData(0, false) || originalData(1, false) || originalData(2, false) || originalData(3, false) || originalData(4, false)) {
+                        var isleave = await checkmsgbox(decodeHtmlEntities("@ViewBag.msg_isleave"));
+                    }
+                    if (!isleave) {
+                        return;
+                    }
+                }
+
+                // 使用 AJAX 將 newInterval 值發送到伺服器
+                var xhr = new XMLHttpRequest();
+                xhr.open("POST", "/Home/LOGOUT", true); // 確保 URL 正確
+                xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8");
+                var UserID = getCookie('ID');
+                if (UserID !== undefined) {
+                    UserID = decrypt(UserID);
+                } else {
+                    UserID = "geust"
+                }
+                var data = "&UserID=" + encodeURIComponent(UserID);// 構建請求參數字符串
+
+                // 定義當請求完成時的回調函數
+                xhr.onreadystatechange = function () {
+                    if (xhr.readyState === 4) {
+                        if (xhr.status === 200) {
+                            // 請求成功，您可以在此處處理回應
+                            console.log("新的間隔設定成功");
+                        } else {
+                            console.error("請求失敗，狀態碼：" + xhr.status);
+                        }
+                    }
+                };
+                // 使用 JSON 數據發送請求
+                xhr.send(data);
+
+                document.cookie = 'isLoggedIn=false; path=/';
+                document.getElementById('user_name').innerText = "";
+                var loginButton = document.getElementById('Head_loginButton');
+                loginButton.innerText = decodeHtmlEntities("@ViewBag.Header_login");
+                deleteCookie('user_name');
+                deleteCookie('user_lv');
+                deleteCookie('ID');
+                window.location.href = '/';
+            }
+        });
+
+        // 關閉登入模態框的函數
+        document.querySelector('#loginModal .close').addEventListener('click', function () {
+            document.getElementById('loginModal').style.display = 'none';
+        });
+
+        // 驗證登入確認帳號及密碼
+        document.getElementById('loginButton').addEventListener('click', async function (event) {
+            event.preventDefault();// 阻止表單的默認提交行為
+
+            var useraccount = document.getElementById('userID').value;
+            var password = document.getElementById('password').value;
+
+            if (useraccount == "") {
+                msgbox(decodeHtmlEntities("@ViewBag.msg_noID"));
+                return;
+            }
+            if (password == "") {
+                msgbox(decodeHtmlEntities("@ViewBag.msg_noPW"));
+                return;
+            }
+
+            try {
+                var responseData = await getMaterial(useraccount, null, password, null, true, false, false);
+
+                if (!responseData.iDtrue) {
+                    if (responseData.pw) {
+                        // 登入成功，設置一個 cookie 來標記登入狀態
+                        document.cookie = 'isLoggedIn=true; path=/';
+                        // 登入成功，隱藏模態框
+                        document.getElementById('loginModal').style.display = 'none';
+                        // 將使用者名稱填入到 span 中
+                        document.getElementById('user_name').innerText = responseData.name;
+                        // 登入成功，設置一個 cookie 來標記登入使用者
+                        document.cookie = 'user_name=' + responseData.name + '; path=/';
+                        document.cookie = 'user_lv=' + encrypt(responseData.level) + '; path=/';
+                        document.cookie = 'ID=' + encrypt(useraccount) + '; path=/';
+                        // 登入成功，將按鈕改名
+                        var loginButton = document.getElementById('Head_loginButton');
+                        loginButton.innerText = decodeHtmlEntities("@ViewBag.Header_logout");
+                        // 管理帳號視窗的可選等級
+                        LV_choose(encrypt(responseData.level));
+                    } else {
+                        // 登入失敗，顯示錯誤信息
+                        msgbox(decodeHtmlEntities("@ViewBag.modal_msg_loginfailed_password"));
+                    }
+                } else {
+                    // 登入失敗，顯示錯誤信息
+                    msgbox(decodeHtmlEntities("@ViewBag.modal_msg_loginfailed_id"));
+                }
+            } catch (error) {
+                console.error('發生錯誤:', error);
+            }
+        });
+
+        // Enter登入
+        var userIDInput = document.getElementById('userID');
+        var passwordInput = document.getElementById('password');
+        var loginButton = document.getElementById('loginButton');
+
+        //按鍵監聽確認Enter鍵
+        userIDInput.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter') {
+                // 按下Enter時觸發登入按鈕的點擊事件
+                loginButton.click();
+            }
+        });
+        //按鍵監聽確認Enter鍵
+        passwordInput.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter') {
+                // 按下Enter時觸發登入按鈕的點擊事件
+                loginButton.click();
+            }
+        });
+
+        //驗證權限，管理帳號
+        document.getElementById('AuthorityButton').addEventListener('click', function (event) {
+            event.preventDefault(); // 阻止默認行為
+            // 檢查用戶是否已登入，這裡通過檢查 cookie 來實現
+            var isLoggedIn = getCookie('isLoggedIn');
+            var user_name = getCookie('user_name');
+
+            if (user_name === undefined) {
+                msgbox(decodeHtmlEntities("@ViewBag.modal_msg_nopermissions"));
+            } else {
+                if (getCookie('user_lv') === addddr) {
+                    // 已登入，顯示登入畫面
+                    document.getElementById('accountManagementModal').style.display = 'block';
+                } else {
+                    msgbox(decodeHtmlEntities("@ViewBag.modal_msg_lowlv"));
+                }
+            }
+        });
+
+        //關閉帳號管理模態框的函數
+        document.querySelector('#accountManagementModal .close').addEventListener('click', function () {
+            document.getElementById('accountManagementModal').style.display = 'none';
+        });
+
+        //跳轉到首頁
+        document.getElementById('HomeButton').addEventListener('click', async function (event) {
+            event.preventDefault(); // 阻止默認行為
+            var isleave = true;
+            if (isSetting) {
+                if (originalData(0, false) || originalData(1, false) || originalData(2, false) || originalData(3, false) || originalData(4, false)) {
+                    var isleave = await checkmsgbox(decodeHtmlEntities("@ViewBag.msg_isleave"));
+                }
+                if (!isleave) {
+                    return;
+                }
+            }
+            window.location.href = '/';
+        });
+
+        //跳轉到設定頁
+        document.getElementById('settingButton').addEventListener('click', async function (event) {
+            event.preventDefault(); // 阻止默認行為
+            // 檢查用戶是否已登入，這裡通過檢查 cookie 來實現
+            var isLoggedIn = getCookie('isLoggedIn');
+            var user_name = getCookie('user_name');
+
+            if (user_name === undefined) {
+                // 未登入，顯示提示信息或執行相關操作
+                msgbox(decodeHtmlEntities("@ViewBag.modal_msg_nopermissions"));
+            } else {
+                var isleave = true;
+                if (isSetting) {
+                    if (originalData(0, false) || originalData(1, false) || originalData(2, false) || originalData(3, false) || originalData(4, false)) {
+                        var isleave = await checkmsgbox(decodeHtmlEntities("@ViewBag.msg_isleave"));
+                    }
+                    if (!isleave) {
+                        return;
+                    }
+                }
+                // 已登入，可以執行跳轉或其他操作
+                window.location.href = '/Home/Privacy';
+            }
+        });
+
+        // 帳號獲取及驗證資訊
+        function getMaterial(Account, Name, PW, Level, ischeck, isModify, isDelete) {
+            return new Promise(function (resolve, reject) {
+                var UserID = getCookie('ID');
+                if (UserID !== undefined) {
+                    UserID = decrypt(UserID);
+                } else {
+                    UserID = "geust"
+                }
+                // 使用 AJAX 將 newInterval 值發送到伺服器
+                var xhr = new XMLHttpRequest();
+                xhr.open("POST", "/Home/GetMaterial", true); // 確保 URL 正確
+                xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8");
+
+                var data = "Account=" + encodeURIComponent(Account) + "&Name=" + encodeURIComponent(Name) + "&PW=" + encodeURIComponent(PW) +
+                    "&Level=" + encodeURIComponent(Level) + "&ischeck=" + encodeURIComponent(ischeck) + "&isModify=" + encodeURIComponent(isModify) +
+                    "&isDelete=" + encodeURIComponent(isDelete) + "&UserID=" + encodeURIComponent(UserID);// 構建請求參數字符串
+
+                // 定義當請求完成時的回調函數
+                xhr.onreadystatechange = function () {
+                    if (xhr.readyState === 4) {
+                        if (xhr.status === 200) {
+                            // 請求成功，您可以在此處處理回應
+                            console.log("新的間隔設定成功");
+                            var responseData = JSON.parse(xhr.responseText);
+                            console.log(responseData);
+                            resolve(responseData);
+                        } else {
+                            console.error("請求失敗，狀態碼：" + xhr.status);
+                            reject(xhr.status);
+                        }
+                    }
+                };
+                // 使用 JSON 數據發送請求
+                xhr.send(data);
+            });
+        }
+
+        //可選等級切換
+        function LV_choose(UserLV) {
+            var selectElement = document.getElementById('LV_choose');
+
+            // 移除所有選項
+            while (selectElement.options.length > 0) {
+                selectElement.remove(0);
+            }
+            // 新增選項
+            if (UserLV === addddr) {
+                // 如果是 Administrator 權限，加入所有選項
+                // 新建一個禁用的選項
+                var disabledOption = new Option('Select Level', '', true, true);
+                disabledOption.disabled = true;
+                // 將選項添加到下拉選單中
+                selectElement.add(disabledOption);
+                selectElement.add(new Option('Administrator', '1'));
+                selectElement.add(new Option('User', '2'));
+                document.getElementById('LV_choose').disabled = false;
+                document.getElementById('user_manage').style.display = 'block';
+            } else if (UserLV === 'User') {
+                document.getElementById('user_manage').style.display = 'none';
+                // 如果是 User 權限，只加入 User 選項
+                selectElement.add(new Option('User', '2', true, true));
+                document.getElementById('LV_choose').disabled = true;
+            }
+        }
+
+        //新增帳號按鈕的點擊事件處理程序
+        document.getElementById('addAccount').addEventListener('click', async function (event) {
+            event.preventDefault(); // 阻止表單的默認提交行為
+
+            // 獲取新增帳號表單中的值
+            var newUsername = document.getElementById('newUsername').value;
+            var newUserID = document.getElementById('newUserID').value;
+            var newPassword = document.getElementById('newPassword').value;
+            var checkPassword = document.getElementById('checkPassword').value;
+            var selectedLevel = document.getElementById('LV_choose').value;
+            if (selectedLevel === '1') { selectedLevel = 'Administrator'; }
+            else if (selectedLevel === '2') { selectedLevel = 'User'; }
+
+            // 檢查是否有空白的輸入
+            if (!newUsername || !newUserID || !newPassword || !checkPassword || !selectedLevel || selectedLevel === '') {
+                msgbox("@ViewBag.modal_msg_login_empty");
+                return;
+            }
+
+            //檢查是否符合ASCII格式
+            if (!isASCII(newUsername) || !isASCII(newUserID) || !isASCII(newPassword) || !isASCII(checkPassword)) {
+                msgbox("@ViewBag.msg_format_wrong");
+                return;
+            }
+
+            if (newPassword !== checkPassword) {
+                msgbox("@ViewBag.modal_msg_passwordnosame");
+                document.getElementById('newPassword').value = '';
+                document.getElementById('checkPassword').value = '';
+                return;
+            }
+
+            try {
+                // 調用新增帳號的函數
+                var responseData = await getMaterial(newUserID, newUsername, newPassword, selectedLevel, false, false, false);
+                console.log(responseData);
+                if (!responseData.used) {
+                    addToTable(newUserID, newUsername, selectedLevel);//將新增的資料帶到table裡面
+                    msgbox(newUsername + " " + decodeHtmlEntities("@ViewBag.modal_msg_creatsuccess"));
+                    // 關閉新增帳號的模態框
+                    document.getElementById('editAccountModal').style.display = 'none';
+                } else {
+                    // 創建失敗，顯示錯誤信息
+                    msgbox(decodeHtmlEntities("@ViewBag.modal_msg_msg_creatfailed"));
+                }
+            } catch (error) {
+                console.error('發生錯誤:', error);
+            }
+        });
+
+        //刪除使用者帳號的確認
+        async function removeAccount(account, username) {
+            //if (account === 'admin'){
+            //    msgbox(decodeHtmlEntities("無法刪除，此為最高權限使用者"))
+            //    return;
+            //}
+            if (account === decrypt(getCookie('ID'))) {
+                msgbox(decodeHtmlEntities("@ViewBag.modal_msg_accountisusing"))
+                return;
+            }
+            var isdelete = await checkmsgbox(decodeHtmlEntities("@ViewBag.modal_msg_isremove1") + " " + username + " " + decodeHtmlEntities("@ViewBag.modal_msg_isremove2"));
+
+            if (isdelete) {
+                // 調用刪除帳號的函數
+                deleteAccount(account, username);
+            }
+        }
+
+        //刪除使用者帳號
+        async function deleteAccount(account, username) {
+            try {
+                var responseData = await getMaterial(account, null, null, null, false, false, true);
+
+                if (responseData.deleted) {
+                    msgbox(username + " " + decodeHtmlEntities("@ViewBag.modal_msg_removesuccess"));
+                    // 在這裡，你可以通過修改 DOM 元素來實現局部更新
+                    // 例如，如果希望移除該用戶的相應行，可以使用 JavaScript 來操作 DOM 元素
+                    var userRow = document.getElementById('userRow_' + account);
+                    if (userRow) {
+                        userRow.remove(); // 移除相應的行
+                    }
+                } else {
+                    msgbox(decodeHtmlEntities("@ViewBag.modal_msg_removefailed"));
+                }
+            } catch (error) {
+                console.error('發生錯誤:', error);
+            }
+        }
+
+        //新增的帳戶資料放入表格裡
+        function addToTable(userID, username, level) {
+            // 找到表格的 tbody
+            var tbody = document.querySelector('tbody');
+
+            // 創建一個新的表格行
+            var newRow = document.createElement('tr');
+            var selcectLV
+            newRow.id = 'userRow_' + userID;
+            if (level == 'Administrator') {
+                selcectLV = 1;
+            } else {
+                selcectLV = 2;
+            }
+            // 在新行中插入單元格
+            newRow.innerHTML = `
+                                <td class="exclude">${level}</td>
+                                <td class="exclude">${username}</td>
+                                <td class="exclude">
+                                                <button class="btn btn-warning btn-sm" onclick="editAccount('${userID}', '${username}', '${selcectLV}')">@ViewBag.modal_btn_edit</button>
+                                        <button class="btn btn-danger btn-sm" onclick="removeAccount('${userID}', '${username}')">@ViewBag.modal_btn_delete</button>
+                                </td>
+                            `;
+
+            // 插入新行到 tbody 中
+            tbody.appendChild(newRow);
+        }
+
+        // 顯示修改帳號視窗
+        function editAccount(account, name, level) {
+            //if (account === 'admin') {
+            //    msgbox(decodeHtmlEntities("無法修改，此為最高權限使用者"))
+            //    return;
+            //}
+            if (level == 'Administrator' || level == '1') {
+                selcectLV = 1;
+            } else {
+                selcectLV = 2;
+            }
+            // 將用戶帳號填充到模態框中的相應欄位
+            document.getElementById('editUserID').value = account;
+            document.getElementById('editUsername').value = name;  // 設置名稱為空
+            document.getElementById('editPassword').value = '';  // 設置密碼為空
+            document.getElementById('editcheckPassword').value = '';  // 設置確認密碼為空
+            document.getElementById('editLevel').value = selcectLV;  // 選擇LEVEL的初始值
+            document.getElementById('editLevel').disabled = false;
+            if (account === decrypt(getCookie('ID'))) {
+                document.getElementById('editLevel').value = '1';  // 選擇LEVEL的初始值
+                document.getElementById('editLevel').disabled = true;
+            }
+
+            // 顯示修改帳號的模態框
+            document.getElementById('modal_title_account').innerHTML = "@ViewBag.modal_editaccount";
+            document.getElementById('editAccountModal').style.display = 'block';
+            document.getElementById('editAccountForm').style.display = 'block';
+            document.getElementById('addAccountForm').style.display = 'none';
+        }
+
+        //顯示新增帳號視窗
+        document.getElementById('Additionaccount').addEventListener('click', function (event) {
+            document.getElementById('newUserID').value = '';  // 設置帳號為空
+            document.getElementById('newUsername').value = '';  // 設置名稱為空
+            document.getElementById('newPassword').value = '';  // 設置密碼為空
+            document.getElementById('checkPassword').value = '';  // 設置密碼為空
+            document.getElementById('LV_choose').value = '';  // 選擇LEVEL的初始值
+
+            document.getElementById('modal_title_account').innerHTML = "@ViewBag.modal_addaccount";
+            document.getElementById('editAccountModal').style.display = 'block';
+            document.getElementById('editAccountForm').style.display = 'none';
+            document.getElementById('addAccountForm').style.display = 'block';
+        });
+
+
+        // 提交修改帳號按鈕的點擊事件處理程序
+        document.getElementById('submitEditAccount').addEventListener('click', async function (event) {
+            event.preventDefault(); // 阻止表單的默認提交行為
+
+            // 獲取修改帳號表單中的值
+            var editUserID = document.getElementById('editUserID').value;
+            var editUsername = document.getElementById('editUsername').value;
+            var editPassword = document.getElementById('editPassword').value;
+            var editcheckPassword = document.getElementById('editcheckPassword').value;
+            var editLevel = document.getElementById('editLevel').value;
+            if (editLevel === '1') { editLevel = 'Administrator'; }
+            else if (editLevel === '2') { editLevel = 'User'; }
+
+            // 檢查是否有空白的輸入
+            if (!editUsername || !editUserID || !editPassword || !editLevel || editLevel === 'Select Level') {
+                msgbox("@ViewBag.modal_msg_login_empty");
+                return;
+            }
+
+            // 檢查符合ASCII格式
+            if (!isASCII(editUsername) || !isASCII(editUserID) || !isASCII(editPassword)) {
+                msgbox("@ViewBag.msg_format_wrong");
+                return;
+            }
+
+            if (editPassword !== editcheckPassword) {
+                msgbox(decodeHtmlEntities("@ViewBag.modal_msg_passwordnosame"));
+                document.getElementById('editPassword').value = '';
+                document.getElementById('editcheckPassword').value = '';
+                return;
+            }
+
+            var responseData = await getMaterial(editUserID, editUsername, editPassword, editLevel, false, true, false);
+            if (responseData.modifysuccess) {
+                var userRow = document.getElementById('userRow_' + editUserID);
+                if (userRow) {
+                    userRow.remove(); // 移除相應的行
+                }
+                addToTable(editUserID, editUsername, editLevel);
+                msgbox(editUserID + " " + decodeHtmlEntities("@ViewBag.modal_msg_modifysuccess"));
+            } else {
+                msgbox(editUserID + " " + decodeHtmlEntities("@ViewBag.modal_msg_modifyfailed"));
+            }
+
+            // 關閉修改帳號的模態框
+            document.getElementById('editAccountModal').style.display = 'none';
+        });
+
+        // 關閉修改帳號資訊模態框的函數
+        document.querySelector('#editAccountModal .close').addEventListener('click', function () {
+            document.getElementById('editAccountModal').style.display = 'none';
+        });
+
+        /*** Enter登入 ***/
+        //新增帳號資訊
+        var newUsernameInput = document.getElementById('newUsername');
+        var newUserIDInput = document.getElementById('newUserID');
+        var newPasswordInput = document.getElementById('newPassword');
+        var checkPasswordInput = document.getElementById('checkPassword');
+        var addAccountbutton = document.getElementById('addAccount');
+        // 添加按鍵監聽器
+        newUsernameInput.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter') {
+                // 按下Enter時觸發登入按鈕的點擊事件
+                addAccountbutton.click();
+            }
+        });
+        newUserIDInput.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter') {
+                // 按下Enter時觸發登入按鈕的點擊事件
+                addAccountbutton.click();
+            }
+        });
+        newPasswordInput.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter') {
+                // 按下Enter時觸發登入按鈕的點擊事件
+                addAccountbutton.click();
+            }
+        });
+        checkPasswordInput.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter') {
+                // 按下Enter時觸發登入按鈕的點擊事件
+                addAccountbutton.click();
+            }
+        });
+        //修改帳號資訊
+        var editUsernameInput = document.getElementById('editUsername');
+        var editPasswordInput = document.getElementById('editPassword');
+        var editcheckPasswordInput = document.getElementById('editcheckPassword');
+        var submitEditAccountbutton = document.getElementById('submitEditAccount');
+        // 添加按鍵監聽器
+        editUsernameInput.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter') {
+                // 按下Enter時觸發登入按鈕的點擊事件
+                submitEditAccountbutton.click();
+            }
+        });
+        editPasswordInput.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter') {
+                // 按下Enter時觸發登入按鈕的點擊事件
+                submitEditAccountbutton.click();
+            }
+        });
+        editcheckPasswordInput.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter') {
+                // 按下Enter時觸發登入按鈕的點擊事件
+                submitEditAccountbutton.click();
+            }
+        });
+
+        //Com Port測試
+        // 提交參數
+        document.getElementById('btn_ComTest').addEventListener('click', async function (event) {
+            event.preventDefault(); // 阻止表單的默認提交行為
+
+            var equipmentname = document.getElementById("equipmentname").value;
+            var testwidth = document.getElementById("testwidth").value;
+            var isValidInteger = /^\d+$/.test(testwidth);
+            var dataList = [];
+
+            if (equipmentname == "M1" && (!isValidInteger || testwidth <= 0 || testwidth > 65535)) {
+                msgbox(decodeHtmlEntities("@ViewBag.table_Width") + ":" + decodeHtmlEntities("@ViewBag.msg_isvaluebiggerthan0"));
+                return;
+            }
+
+            if (equipmentname != "M1") {
+                document.getElementById('overlay').style.display = 'block';
+            }
+
+            var Name = {
+                Type: "NAME",
+                Value: equipmentname
+            };
+
+            dataList.push(Name);
+
+            var Istest = {
+                Type: "ISTEST",
+                Value: "Y"
+            };
+
+            dataList.push(Istest);
+
+            if (equipmentname == "M1") {
+                var Width = {
+                    Type: "WIDTH",
+                    Value: testwidth
+                };
+
+                dataList.push(Width);
+            }
+
+            document.getElementById('ComTest').style.display = 'none';
+
+            // 創建一個新的 XMLHttpRequest 物件
+            //使用 AJAX 回傳給伺服器
+            var xhr = new XMLHttpRequest();
+            xhr.open("POST", "/Home/ComTest", true); // 確保 URL 正確
+            xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8");
+            var data = "List=" + encodeURIComponent(JSON.stringify(dataList));// 構建請求參數字符串
+            // 定義當請求完成時的回調函數
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                        // 請求成功，您可以在此處處理回應
+                        console.log("設定成功");
+
+                        var responseText = JSON.parse(xhr.responseText);
+                        if (equipmentname != "M1") {
+                            if (responseText.isError == "Y") {
+
+                                msgbox(decodeHtmlEntities("@ViewBag.msg_readernor"));
+                            }
+                            else {
+                                msgbox(decodeHtmlEntities("@ViewBag.msg_readererr"));
+                            }
+                        } else {
+                            if (responseText.isError == "noMR") {
+                                msgbox(decodeHtmlEntities("@ViewBag.msg_noMRnoTest"));
+                            } else {
+                                msgbox(decodeHtmlEntities("@ViewBag.msg_subsuccess"));
+                            }
+                        }
+
+                    } else {
+                        console.error("請求失敗，狀態碼：" + xhr.status);
+                        msgbox(decodeHtmlEntities("@ViewBag.msg_savefailed") + error);
+                    }
+                }
+            };
+            // 使用 JSON 數據發送請求
+            xhr.send(data);
+        });
+
+        //顯示設備設定
+        function toggleM1Used() {
+            var equipmentSelect = document.getElementById("equipmentname");
+            var forM1used = document.getElementById("forM1used");
+
+            if (equipmentSelect.value === "M1") {
+                forM1used.style.display = "";
+            } else {
+                forM1used.style.display = "none";
+            }
+        }
+
+        //浮水印
+        document.addEventListener("DOMContentLoaded", function () {
+            var modalContent = document.querySelector(".modal-content");
+            var numberOfWatermarks = 100;
+
+            for (var i = 0; i < numberOfWatermarks; i++) {
+                var watermark = document.createElement("img");
+                watermark.src = "Logo_昇捷頌.png";
+                watermark.classList.add("watermark");
+                watermark.classList.add("usemodal_img");
+
+                // 設置浮水印的位置
+                var leftPosition = (i % 10) * 25 - 100;  // 水平位置，每 10% 寬度一行
+                var topPosition = Math.floor(i / 10) * 25 - 100;  // 垂直位置，每 10% 高度一列
+
+                watermark.style.left = leftPosition + "%";
+                watermark.style.top = topPosition + "%";
+
+                modalContent.appendChild(watermark);
+            }
+        });
+    </script>
+</body>
+</html>
